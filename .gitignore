@@ -1,6 +1,7 @@
 # VSCode and Relate
 .vscode
 .DS_Store
+__pycache__
 
 # Access tokens:
 .env
