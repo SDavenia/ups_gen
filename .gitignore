@@ -1,0 +1,11 @@
+# VSCode and Relate
+.vscode
+.DS_Store
+
+# Access tokens:
+.env
+
+# My experiments
+explorations 
+trial*
+notes.txt
