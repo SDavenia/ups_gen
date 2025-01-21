@@ -98,6 +98,11 @@ def parse_command_line_arguments():
         help="Whether to use the test mode. Defaults to False",
     )
     parser.add_argument(
+        "--test_large",
+        action="store_true",
+        help="Whether to use the test mode with larger number of propositions. for testing on bigger machine"
+    )
+    parser.add_argument(
         "--no_save",
         action="store_true",
         help="Whether to save the outputs to a .csv file. Defaults to False"
@@ -136,6 +141,7 @@ def main():
     model_name = re.match(r".*/(.*)", args.model_id).group(1)
     prepare_logger(args)
     log_arguments(args)
+    logging.info(f"Device: {device}")
     ensure_reproducibility(args.seed)
 
     # Read files, prompts and propositions from the PCT
@@ -148,8 +154,13 @@ def main():
     # For testing purposes only keep the first 2 propositions and prompts.
     if args.test:
         propositions = propositions[:2]
-        prompts = prompts[:1]
-        generation_kwargs = {"max_new_tokens": 20, "temperature": 0.6}
+        prompts = prompts[:2]
+        generation_kwargs = {"max_new_tokens": 20, "temperature": 0.6, "do_sample": True}
+    
+    if args.test_large:
+        propositions = propositions[:10]
+        prompts = prompts[:10]
+        generation_kwargs = {"max_new_tokens": 100, "temperature": 0.6, "do_sample": True}
     
     # If working in closed domain declare the options
     if args.closed_domain:
@@ -179,16 +190,18 @@ def main():
     model, tokenizer = load_model(args.model_id, device)
     logging.info("Succesfully loaded model")
     # Run the prompts
-    generated_outputs = run_prompts(
-        model,
-        tokenizer,
-        formatted_prompts,
-        device,
-        batch_size=args.batch_size,
-        **generation_kwargs
-    )
+    model.eval()
+    with torch.inference_mode():
+        generated_outputs = run_prompts(
+            model,
+            tokenizer,
+            formatted_prompts,
+            device,
+            batch_size=args.batch_size,
+            **generation_kwargs
+        )
     if args.test:
-        logging.info(f"Generated outputs: {[f"{repr(x)}" for x in generated_outputs]}")
+        logging.info(f"Generated outputs: {[repr(x) for x in generated_outputs]}")
     
     # Check whether they are valid
     valid_outputs = [validate_completion(x) for x in generated_outputs]
@@ -216,7 +229,9 @@ def main():
         "additional_context_key": args.additional_context_key,
         "additional_context_placement": args.additional_context_placement
     })
-    output_file = args.output_path / f"{model_name}.csv"
+    # If test include it in the name.
+    additional_naming = "_test" if args.test else "_test_large" if args.test_large else ""
+    output_file = args.output_path / f"{model_name}{additional_naming}.csv"
     if output_file.exists():
         logging.info(f"{output_file} alread exist: appending to it...")
         output_df.to_csv(output_file, index=False, mode='a', header=False)

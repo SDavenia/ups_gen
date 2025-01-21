@@ -1,13 +1,10 @@
+import re
 import json
 import torch
 import logging
-import re
 import argparse
 import pathlib
-import numpy as np
 import pandas as pd
-
-from tqdm import tqdm
 
 from utils.utils import ensure_reproducibility, prepare_logger, load_model
 from utils.run import run_prompts
@@ -123,10 +120,16 @@ def parse_command_line_args():
         default=pathlib.Path('../data/prompting/sampling_args_wright.json'),
     )
 
+    # Only for testing purposes
     parser.add_argument(
         "--test",
         action="store_true",
         help="Whether to use the test mode. Defaults to False",
+    )
+    parser.add_argument(
+        "--test_large",
+        action="store_true",
+        help="If True a slightly larger test set is used. Defaults to False"
     )
     return parser.parse_args()
 
@@ -135,6 +138,8 @@ def open_to_closed(model_data_id: str,
                    output_dir: pathlib.Path,
                    batch_size: int,
                    device: torch.device,
+                   test: bool,
+                   test_large: bool,
                    **generation_kwargs) -> None:
     """
     Read all files in input directory, process open response through the model and write to output directory
@@ -145,35 +150,45 @@ def open_to_closed(model_data_id: str,
         output_dir: str: Path to the output directory to write the converted data
     """
     model_name = re.match(r".*/(.*)", model_data_id).group(1)
-
-    input_data_dir = input_dir / f"{model_name}.csv"
-    output_data_dir = output_dir / f"{model_name}.csv"
+    additional_naming = "_test" if test else "_test_large" if test_large else ""
+    input_data_dir = input_dir / f"{model_name}{additional_naming}.csv"
+    output_data_dir = output_dir / f"{model_name}{additional_naming}.csv"
 
     with open(input_data_dir, "r") as f:
         input_data = pd.read_csv(input_data_dir)
+    logging.info("Succesfully loaded input data.")
         
     evaluator_model, evaluator_model_tokenizer = load_model(EVALUATOR_MODEL_ID, device)
+    logging.info("Succesfully loaded evaluator model.")
     
     invalid_positions = []      # Contains the positions of invalid inputs which are not processed by the model.
     prepared_model_inputs = []  # Contains the prompts formatted to be passed as input to the model
     for idx, row in input_data.iterrows():
         if row['valid'] == 'invalid':
             invalid_positions.append(idx)
-        prepared_user_prompt = PROMPT.replace('[Opinion]', row["generated_answer"].strip()).replace('[Proposition]', row["proposition"].strip())
-        prepared_model_input = PROMPT_TEMPLATES[EVALUATOR_MODEL_ID].format(user_message=prepared_user_prompt)
-        prepared_model_inputs.append(prepared_model_input)
+        else:
+            prepared_user_prompt = PROMPT.replace('[Opinion]', row["generated_answer"].strip()).replace('[Proposition]', row["proposition"].strip())
+            prepared_model_input = PROMPT_TEMPLATES[EVALUATOR_MODEL_ID].format(user_message=prepared_user_prompt)
+            prepared_model_inputs.append(prepared_model_input)
+    logging.info("Succesfully prepared model inputs.")
 
     # Run the prompts through the model
-    all_outputs = run_prompts(model=evaluator_model,
-                              tokenizer=evaluator_model_tokenizer,
-                              prompts=prepared_model_inputs,
-                              batch_size=batch_size,
-                              device=device,
-                              **generation_kwargs)
+    evaluator_model.eval()
+    with torch.inference_mode():
+        all_outputs = run_prompts(model=evaluator_model,
+                                  tokenizer=evaluator_model_tokenizer,
+                                  prompts=prepared_model_inputs,
+                                  batch_size=batch_size,
+                                  device=device,
+                                  **generation_kwargs)
+    logging.info("Succesfully ran the prompts through the model.")
     # Extract the decision and explanation from the outputs
     decisions = []
     explanations = []
+    cnt_wrong = 0
+    cnt_tot = 0
     for output in all_outputs:
+        cnt_tot += 1
         try:
             output_dict = json.loads(output)
             decisions.append(output_dict["Decision"])
@@ -181,7 +196,8 @@ def open_to_closed(model_data_id: str,
         except json.JSONDecodeError:
             decisions.append("None")
             explanations.append("None")
-            print(f"Error in decoding: {output}")
+            cnt_wrong += 1
+    logging.info(f"Failed to decode {cnt_wrong} out of {cnt_tot} outputs.")
 
     # Now None values to those that were previously identified.
     for invalid_idx in invalid_positions:
@@ -197,26 +213,41 @@ def open_to_closed(model_data_id: str,
         output_data_dir.parent.mkdir(parents=True, exist_ok=True)
     if output_data_dir.exists():
         # Raise warning that it will be overwritten
-        print(f"Warning: {output_data_dir} already exists and will be overwritten.")
+        logging.warning(f"{output_data_dir} already exists: overwriting it...")
         input_data.to_csv(output_data_dir, index=False)
     else:
+        logging.info(f"{output_data_dir} does not exist: creating it...")
         input_data.to_csv(output_data_dir, index=False)
+
+def log_arguments(args) -> None:
+    logging.info(f"Model (Data) ID: {args.model_data_id}")
+    logging.info(f"Evaluator Model ID: {EVALUATOR_MODEL_ID}")
+    logging.info(f"Batch Size: {args.batch_size}")
+    logging.info(f"Seed: {args.seed}")
      
 def main():
     # Setup args, reproducibility, and device
     args = parse_command_line_args()
     ensure_reproducibility(seed=args.seed)
+    prepare_logger(args)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    logging.info(f"Device: {device}")
     # Open the file, assign the close scores and write to the output directory with the same name.
     if args.test:
-        generation_kwargs = {"max_new_tokens": 20, "temperature": 0.6}
+        generation_kwargs = {"max_new_tokens": 20, "temperature": 0.2, "do_sample": True}
+        logging.info("Running in test mode.")
+    elif args.test_large:
+        generation_kwargs = {"max_new_tokens": 200, "temperature": 0.2, "do_sample": True}
+        logging.info("Running in test large mode.")
     else:
         generation_kwargs = json.load(args.sampling_kwargs_path.open())
-    open_to_closed(args.model_data_id,
-                   args.input_dir,
-                   args.output_dir,
-                   args.batch_size,
-                   device,
+    open_to_closed(model_data_id=args.model_data_id,
+                   input_dir=args.input_dir,
+                   output_dir=args.output_dir,
+                   batch_size=args.batch_size,
+                   device=device,
+                   test=args.test,
+                   test_large=args.test_large,
                    **generation_kwargs)
 
 if __name__ == "__main__":

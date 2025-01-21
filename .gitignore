@@ -12,3 +12,7 @@ trial*
 notes.txt
 
 *generation
+*generation_processed
+
+# Push data to hf
+push_data_to_hf.py
