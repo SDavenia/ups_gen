@@ -9,6 +9,7 @@ __pycache__
 # My experiments
 explorations 
 trial*
+try*
 notes.txt
 
 *generation
@@ -16,3 +17,6 @@ notes.txt
 
 # Push data to hf
 push_data_to_hf.py
+
+# out files
+# *.out
