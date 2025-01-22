@@ -103,6 +103,11 @@ def parse_command_line_arguments():
         help="Whether to use the test mode with larger number of propositions. for testing on bigger machine"
     )
     parser.add_argument(
+        "--small_complete_run",
+        action="store_true",
+        help="Whether to run a small complete run"
+    )
+    parser.add_argument(
         "--no_save",
         action="store_true",
         help="Whether to save the outputs to a .csv file. Defaults to False"
@@ -159,9 +164,14 @@ def main():
     
     if args.test_large:
         propositions = propositions[:10]
-        prompts = prompts[:10]
+        prompts = prompts[:5]
         generation_kwargs = {"max_new_tokens": 100, "temperature": 0.6, "do_sample": True}
     
+    if args.small_complete_run:
+        propositions = propositions
+        prompts = prompts[:2]
+        # generation_kwargs is the default one used in Wright.
+
     # If working in closed domain declare the options
     if args.closed_domain:
         options = ['Strongly disagree', 'Disagree', 'Agree', 'Strongly agree']
@@ -230,7 +240,8 @@ def main():
         "additional_context_placement": args.additional_context_placement
     })
     # If test include it in the name.
-    additional_naming = "_test" if args.test else "_test_large" if args.test_large else ""
+    additional_naming = "_test" if args.test else "_test_large" if args.test_large else "_small_complete_run" if args.small_complete_run else ""
+    # additional_naming = "_test" if args.test else "_test_large" if args.test_large else ""
     output_file = args.output_path / f"{model_name}{additional_naming}.csv"
     if output_file.exists():
         logging.info(f"{output_file} alread exist: appending to it...")

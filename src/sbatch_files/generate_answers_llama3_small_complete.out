@@ -1,0 +1,10 @@
+2025-01-22 11:25:43,354 - INFO - Model ID: meta-llama/Llama-3.1-8B-Instruct
+2025-01-22 11:25:43,354 - INFO - Batch Size: 16
+2025-01-22 11:25:43,354 - INFO - Closed Domain questions: False
+2025-01-22 11:25:43,354 - INFO - Format Output to JSON: False
+2025-01-22 11:25:43,354 - INFO - Additional Context Key: None
+2025-01-22 11:25:43,354 - INFO - Additional Context Placement: None
+2025-01-22 11:25:43,354 - INFO - Seed: 10
+2025-01-22 11:25:43,354 - INFO - Device: cuda
+2025-01-22 11:25:43,364 - INFO - Successfully formatted prompts
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:35<01:47, 35.90s/it]Loading checkpoint shards:  50%|█████     | 2/4 [01:10<01:10, 35.12s/it]

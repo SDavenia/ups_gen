@@ -131,6 +131,11 @@ def parse_command_line_args():
         action="store_true",
         help="If True a slightly larger test set is used. Defaults to False"
     )
+    parser.add_argument(
+        "--small_complete_run",
+        action="store_true",
+        help="If True, the run is done on a small subset of the data. Defaults to False"
+    )
     return parser.parse_args()
 
 def open_to_closed(model_data_id: str,
@@ -140,6 +145,7 @@ def open_to_closed(model_data_id: str,
                    device: torch.device,
                    test: bool,
                    test_large: bool,
+                   small_complete_run: bool,
                    **generation_kwargs) -> None:
     """
     Read all files in input directory, process open response through the model and write to output directory
@@ -150,7 +156,8 @@ def open_to_closed(model_data_id: str,
         output_dir: str: Path to the output directory to write the converted data
     """
     model_name = re.match(r".*/(.*)", model_data_id).group(1)
-    additional_naming = "_test" if test else "_test_large" if test_large else ""
+    # additional_naming = "_test" if test else "_test_large" if test_large else ""
+    additional_naming = "_test" if test else "_test_large" if test_large else "_small_complete_run" if small_complete_run else ""
     input_data_dir = input_dir / f"{model_name}{additional_naming}.csv"
     output_data_dir = output_dir / f"{model_name}{additional_naming}.csv"
 
@@ -241,6 +248,7 @@ def main():
         logging.info("Running in test large mode.")
     else:
         generation_kwargs = json.load(args.sampling_kwargs_path.open())
+        logging.info("Running with evaluator model normal mode.")
     open_to_closed(model_data_id=args.model_data_id,
                    input_dir=args.input_dir,
                    output_dir=args.output_dir,
@@ -248,6 +256,7 @@ def main():
                    device=device,
                    test=args.test,
                    test_large=args.test_large,
+                   small_complete_run=args.small_complete_run,
                    **generation_kwargs)
 
 if __name__ == "__main__":

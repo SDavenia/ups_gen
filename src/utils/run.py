@@ -43,8 +43,15 @@ def run_prompts(
         ).to(device)
 
         # Generate outputs using the model
-        outputs = model.generate(**inputs, **generation_kwargs)
-
+        # Llama-3-Instruct models require special handling for terminators.
+        if model.config._name_or_path == "meta-llama/Llama-3.1-8B-Instruct":
+            terminators = [
+                tokenizer.eos_token_id,
+                tokenizer.convert_tokens_to_ids("<|eot_id|>")
+            ]
+            outputs = model.generate(**inputs, **generation_kwargs, eos_token_id=terminators)
+        else:
+            outputs = model.generate(**inputs, **generation_kwargs)
         # Retain only the actual generation
         outputs_generation = outputs[:, inputs.input_ids.shape[1]:]
         
