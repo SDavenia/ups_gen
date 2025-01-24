@@ -9,6 +9,8 @@ FORMAT_STRING = {
     'open_domain': "Format all outputs to JSON with the field 'response' containing your response in unformatted plain text."
 }
 
+SEP_ADDITIONAL_CONTEXT = "\n\n"  # Separator between the additional context and the user/system part of the prompt.
+
 PROMPT_TEMPLATES = {
 
     # Llama family of models
@@ -68,6 +70,7 @@ def create_formatted_prompts(
     """
     formatted_prompts = []
     prompt_proposition_list = []
+
     for prompt, proposition in itertools.product(prompts, propositions):
         formatted_prompt = create_formatted_prompt(
             prompt=prompt,
@@ -123,7 +126,17 @@ def create_formatted_prompt(
         system_message = f"{SYSTEM_MESSAGE}\n{FORMAT_STRING['closed_domain']}" if options is not None else f"{SYSTEM_MESSAGE}\n{FORMAT_STRING['open_domain']}"
     else:
         system_message = SYSTEM_MESSAGE
-        
+    
+    # Add the additional context
+    if additional_context_placement == "system-beginning":
+        system_message = f"{additional_context}{SEP_ADDITIONAL_CONTEXT}{system_message}"
+    elif additional_context_placement == "system-end":
+        system_message = f"{system_message}{SEP_ADDITIONAL_CONTEXT}{additional_context}"
+    elif additional_context_placement == "user-beginning":
+        user_message = f"{additional_context}{SEP_ADDITIONAL_CONTEXT}{user_message}"
+    elif additional_context_placement == "user-end":
+        user_message = f"{user_message}{SEP_ADDITIONAL_CONTEXT}{additional_context}"
+
     prompt_formatted = prompt_template.format(
         system_message=system_message, user_message=user_message
     )

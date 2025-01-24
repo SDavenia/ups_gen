@@ -14,9 +14,11 @@ notes.txt
 
 *generation
 *generation_processed
+*results_pct
 
 # Push data to hf
 push_data_to_hf.py
+extract_additional_context_wiki.py
 
 # out files
 # *.out

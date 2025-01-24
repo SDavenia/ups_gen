@@ -75,13 +75,15 @@ def parse_command_line_arguments():
     parser.add_argument(
         "--additional_context_key",
         type=str,
-        help="Additional context to be added to the model input before question answering."
+        help="Additional context to be added to the model input before question answering.",
+        choices=[None, 'wiki_classical', 'wiki_heavy-metal', 'wiki_jazz', 'wiki_hip-pop', 'wiki-rock', 'wiki_pop']
     )
     
     parser.add_argument(
         "--additional_context_placement",
         type=str,
-        help="In what part of the prompt the additional context should be specified"
+        help="In what part of the prompt the additional context should be specified",
+        choices=[None, 'system-beginning', 'system-end', 'user-beginning', 'user-end']
     )
 
     parser.add_argument(
@@ -144,6 +146,9 @@ def main():
     args = parse_command_line_arguments()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model_name = re.match(r".*/(.*)", args.model_id).group(1)
+    
+    assert args.additional_context_key is None or args.additional_context_placement is not None, "If additional_context_key is specified, additional_context_placement must be specified as well."
+
     prepare_logger(args)
     log_arguments(args)
     logging.info(f"Device: {device}")
@@ -159,7 +164,7 @@ def main():
     # For testing purposes only keep the first 2 propositions and prompts.
     if args.test:
         propositions = propositions[:2]
-        prompts = prompts[:2]
+        prompts = prompts[:1]
         generation_kwargs = {"max_new_tokens": 20, "temperature": 0.6, "do_sample": True}
     
     if args.test_large:
@@ -177,14 +182,17 @@ def main():
         options = ['Strongly disagree', 'Disagree', 'Agree', 'Strongly agree']
     else:
         options = None
-    
-    # If run with additional context is needed, load it. TODO: May want to add it somewhere else.
+
+    # Load additional context
     if args.additional_context_key is not None:
-        with open(args.additional_context_path, 'r') as f:
-            additional_context = json.load(f)
+        logging.info(f"Loading additional context with key {args.additional_context_key}")
+        with open(args.additional_context_path, "r") as f:
+            additional_context = json.load(f)[args.additional_context_key]
+            if args.test:
+                additional_context = additional_context[:25]
     else:
         additional_context = None
-
+    
     # Create formatted prompts ready to be given as inputs to the model and also return the list of prompt-proposition tuples.
     formatted_prompts, prompt_propositions = create_formatted_prompts(prompts=prompts,
                                                                       propositions=propositions,
@@ -195,7 +203,7 @@ def main():
                                                                       additional_context_placement=args.additional_context_placement
                                                                       )
     logging.info("Successfully formatted prompts")
-
+    
     # Load and prepare model and tokenizer
     model, tokenizer = load_model(args.model_id, device)
     logging.info("Succesfully loaded model")
@@ -230,6 +238,8 @@ def main():
     if not args.output_path.exists():
         args.output_path.mkdir(parents=True, exist_ok=True)
     prompts_extended, proposition_extended = zip(*prompt_propositions)
+    # Also include the generation_kwargs in the rows.
+    all_generation_kwargs = [generation_kwargs] * len(proposition_extended)
     output_df = pd.DataFrame({
         "proposition": proposition_extended,
         "prompt": prompts_extended,
@@ -237,8 +247,11 @@ def main():
         "generated_answer": generated_outputs,
         "valid": valid_outputs,
         "additional_context_key": args.additional_context_key,
-        "additional_context_placement": args.additional_context_placement
+        "additional_context_placement": args.additional_context_placement,
+        "generation_kwargs": all_generation_kwargs
     })
+    if args.test:
+        print(output_df.head())
     # If test include it in the name.
     additional_naming = "_test" if args.test else "_test_large" if args.test_large else "_small_complete_run" if args.small_complete_run else ""
     # additional_naming = "_test" if args.test else "_test_large" if args.test_large else ""
