@@ -1,6 +1,5 @@
 # Takes as input the df with the decisions taken by the model and it returns a df with rows (prompt, additional_context_key, additional_context_placement, economic, social) along with the corresponding PCT test.
-# TODO: Find something to do about the missing values in the decisions which do affect the results, particularly since the scoring of the PCT is calculated with "agree" as base, so by leaving it out we're
-#        essentially using agree as a stance and not a really neutral one.
+
 import re
 import json
 import itertools
@@ -292,7 +291,7 @@ def main():
         df_filtered = reorder_propositions(df_filtered, propositions)
         df_filtered['decision'] = df_filtered['decision'].fillna('None')
 
-        # Does not work due to copies...
+        # Try label fixes
         for idx, value in enumerate(df_filtered['decision'].values):
             if value not in answer_map.keys():
                 value_tomatch = ''.join(e for e in value.lower().strip() if e.isalnum() or e.isspace())
@@ -317,7 +316,13 @@ def main():
         social_scores_df.append(valS)
 
     # df_results contains the political compass test results for each combination of prompt, additional_context_key, and additional_context_placement.
-    df_results = pd.DataFrame({'prompt': prompts_df, 'additional_context_key': additional_context_keys_df, 'additional_context_placement': additional_context_placement_df, 'economic': economic_scores_df, 'social': social_scores_df})
+    df_results = pd.DataFrame({'prompt': prompts_df,
+                               'additional_context_key': additional_context_keys_df,
+                               'additional_context_placement': additional_context_placement_df,
+                               'economic': economic_scores_df,
+                               'social': social_scores_df,
+                               'model_id': [model_name] * len(prompts_df)})
+    
     if not args.output_file.parent.exists():
         args.output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -331,58 +336,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-"""
-def political_compass_base_plot(figsize):
-    fig, ax = plt.subplots(figsize=figsize, clip_on=False)
-
-    ax.set_xlim((-10, 10))
-    ax.set_ylim((-10, 10))
-
-    ax.set_xticks(list(range(-10, 11)))
-    ax.set_xticklabels([])
-    ax.set_yticks(list(range(-10, 11)))
-    ax.set_yticklabels([])
-    ax.axhline(y=0, color='k')
-    ax.axvline(x=0, color='k')
-
-    ax.set_facecolor('white')
-    for sp in ax.spines:
-        ax.spines[sp].set_color('#AAAAAA')
-        ax.spines[sp].set_visible(True)
-
-    plt.grid(color='grey', linestyle='--', linewidth=0.5)
-
-    # Define the quadrants with the original color maps
-    extent = [0, 10, 0, 10]
-    arr = np.array([[1, 1], [1, 1]])
-    ax.imshow(arr, extent=extent, cmap='winter', interpolation='none', alpha=0.15)
-
-    extent = [-10, 0, 0, 10]
-    arr = np.array([[1, 1], [1, 1]])
-    ax.imshow(arr, extent=extent, cmap='autumn', interpolation='none', alpha=0.15)
-
-    extent = [-10, 0, -10, 0]
-    arr = np.array([[1, 1], [1, 1]])
-    ax.imshow(arr, extent=extent, cmap='summer', interpolation='none', alpha=0.15)
-
-    extent = [0, 10, -10, 0]
-    arr = np.array([[1, 1], [1, 1]])
-    ax.imshow(arr, extent=extent, cmap='spring_r', interpolation='none', alpha=0.15)
-
-    ax.annotate("Economic right", xy=(9.8, -0.75), fontsize=16, ha='right')
-    ax.annotate("Economic left", xy=(-9.8, -0.75), fontsize=16)
-    ax.annotate("Authoritarian", xy=(0, 8.75), fontsize=16, annotation_clip=False, ha='center')
-    ax.annotate("Libertarian", xy=(0, -8.75), fontsize=16, annotation_clip=False, ha='center', va='top')
-
-    return fig, ax
-
-markers = ['o', 's', 'D', 'X', 'P']
-colors = sns.color_palette("colorblind", 5)
-
-def add_datapoints(ax, df, hue_col, hue_order=None):
-    sns.scatterplot(data=df, x='x', y='y', hue=hue_col, palette=colors, s=130, edgecolor='black', ax=ax, hue_order=hue_order, style=hue_col, markers=markers, alpha=0.9)
-
-# Define some colors for the data points
-# legend_elements = [Line2D([0], [0], marker=m, color='b', label=cat, markerfacecolor=c, markersize=10) for m, c, cat in zip(markers, colors, categories)]
-"""
