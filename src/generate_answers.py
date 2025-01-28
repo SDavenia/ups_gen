@@ -76,7 +76,6 @@ def parse_command_line_arguments():
         "--additional_context_key",
         type=str,
         help="Additional context to be added to the model input before question answering.",
-        choices=[None, 'wiki_classical', 'wiki_heavy-metal', 'wiki_jazz', 'wiki_hip-pop', 'wiki-rock', 'wiki_pop']
     )
     
     parser.add_argument(

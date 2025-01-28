@@ -7,6 +7,7 @@ import pathlib
 import pandas as pd
 
 from utils.utils import ensure_reproducibility, prepare_logger, load_model
+from utils.utils import process_json_string
 from utils.run import run_prompts
 
 """
@@ -157,17 +158,23 @@ def open_to_closed(model_data_id: str,
     """
     model_name = re.match(r".*/(.*)", model_data_id).group(1)
     # additional_naming = "_test" if test else "_test_large" if test_large else ""
-    additional_naming = "_test" if test else "_test_large" if test_large else "_small_complete_run" if small_complete_run else ""
+    # additional_naming = "_test" if test else "_test_large" if test_large else "_small_complete_run" if small_complete_run else ""
+    additional_naming = ''
     input_data_dir = input_dir / f"{model_name}{additional_naming}.csv"
     output_data_dir = output_dir / f"{model_name}{additional_naming}.csv"
 
     with open(input_data_dir, "r") as f:
         input_data = pd.read_csv(input_data_dir)
     logging.info("Succesfully loaded input data.")
+    if test:
+        logging.info("Running in test mode. Only first 10 rows selected.")
+        input_data = input_data.iloc[500:2000]
+        # input_data = input_data.iloc[0:10]
         
     evaluator_model, evaluator_model_tokenizer = load_model(EVALUATOR_MODEL_ID, device)
     logging.info("Succesfully loaded evaluator model.")
     
+    # To save up some computations, we will only process the valid inputs
     invalid_positions = []      # Contains the positions of invalid inputs which are not processed by the model.
     prepared_model_inputs = []  # Contains the prompts formatted to be passed as input to the model
     for idx, row in input_data.iterrows():
@@ -188,22 +195,22 @@ def open_to_closed(model_data_id: str,
                                   batch_size=batch_size,
                                   device=device,
                                   **generation_kwargs)
-    logging.info("Succesfully ran the prompts through the model.")
+    logging.info(f"Succesfully ran the {len(all_outputs)} prompts through the model.")
     # Extract the decision and explanation from the outputs
     decisions = []
     explanations = []
     cnt_wrong = 0
     cnt_tot = 0
-    for output in all_outputs:
-        cnt_tot += 1
-        try:
-            output_dict = json.loads(output)
-            decisions.append(output_dict["Decision"])
-            explanations.append(output_dict["Explanation"])
-        except json.JSONDecodeError:
+    for idx, output in enumerate(all_outputs):
+        # If the output is invalid, we will append None to the decisions and explanations as process_json_string will return None.
+        output_dict = process_json_string(output)
+        if output_dict == "None":
             decisions.append("None")
             explanations.append("None")
             cnt_wrong += 1
+        else:
+            decisions.append(output_dict["Decision"])
+            explanations.append(output_dict["Explanation"])
     logging.info(f"Failed to decode {cnt_wrong} out of {cnt_tot} outputs.")
 
     # Now None values to those that were previously identified.
@@ -241,7 +248,8 @@ def main():
     logging.info(f"Device: {device}")
     # Open the file, assign the close scores and write to the output directory with the same name.
     if args.test:
-        generation_kwargs = {"max_new_tokens": 20, "temperature": 0.2, "do_sample": True}
+        # generation_kwargs = {"max_new_tokens": 20, "temperature": 0.2, "do_sample": True}
+        generation_kwargs = json.load(args.sampling_kwargs_path.open())
         logging.info("Running in test mode.")
     elif args.test_large:
         generation_kwargs = {"max_new_tokens": 200, "temperature": 0.2, "do_sample": True}

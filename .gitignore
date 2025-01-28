@@ -20,8 +20,17 @@ notes.txt
 push_data_to_hf.py
 extract_additional_context_wiki.py
 
+# old sbatch files
+old/
+
+# Trials
+failed_outputs.txt
+
+# Tests
+*test*
+
 # out files
-# *.out
+*.out
 
 # python notebooks for not
 *.ipynb
