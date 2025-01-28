@@ -1,5 +1,7 @@
 # Additional utils.
+import re
 import torch
+import json
 import logging
 import random
 import numpy as np
@@ -79,3 +81,59 @@ def load_model(model_id,
     else:
         model, tokenizer = add_pad_token(model_id, model, tokenizer)
         return model, tokenizer
+
+def fix_json_quotes(json_str: str) -> str:
+    """
+    Fix JSON strings that contain unescaped quotes within field values.
+    Only escapes quotes that appear inside the value content, not the ones that delimit the keys and values.
+    
+    Args:
+        json_str (str): The JSON string to fix
+        
+    Returns:
+        str: The fixed JSON string that can be parsed by json.loads()
+    """
+    # First of all extract the json part of the output in case there are additional comments given by the model. -> Keep only the part of the output between the first and last curly braces
+    pattern_json = r"(\{[\s\S]*\})"
+    json_str = re.search(pattern_json, json_str).group(1).strip()
+    
+    # Extract the fields from explanation and decision
+    fields_pattern = r"\{*[\s\S]*\"Explanation\":\s*\"(.*)\",[\s\S]*\"Decision\":\s*\"(.*)\"[\s\S]*\}"
+    fields = re.findall(fields_pattern, json_str)[0]
+
+    explanation = fields[0]
+    decision = fields[1]
+
+    decision_fixed = decision.replace('"', '\\"')
+    explanation_fixed = explanation.replace('"', '\\"')
+
+    # Now replace it back in json_str
+    json_str = json_str.replace(decision, decision_fixed)
+    json_str = json_str.replace(explanation, explanation_fixed)
+    return json_str
+
+def process_json_string(json_str):
+    """
+    Process a JSON string and return a Python dictionary.
+    Handles both valid JSON and JSON with unescaped quotes.
+    
+    Args:
+        json_str (str): The JSON string to process
+        
+    Returns:
+        dict: The parsed JSON data
+    """
+    # Try to parse normally
+    try:
+        # First try to parse as-is
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        # If that fails, try to fix the quotes
+        try:
+            fixed_json = fix_json_quotes(json_str)
+            print(fixed_json)
+            return json.loads(fixed_json)
+        except Exception as e:
+            return "None"
+    except Exception as e:
+        return "None"
