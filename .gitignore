@@ -22,3 +22,6 @@ extract_additional_context_wiki.py
 
 # out files
 # *.out
+
+# python notebooks for not
+*.ipynb
