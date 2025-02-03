@@ -8,7 +8,7 @@ import pandas as pd
 import pathlib
 import argparse
 
-from utils.utils import ensure_reproducibility
+from utils.utils import ensure_reproducibility, reorder_column, fix_label, read_json, read_lines
 # import seaborn as sns
 # import matplotlib.pyplot as plt
 # from matplotlib.lines import Line2D
@@ -176,33 +176,6 @@ def political_compass_values(answers, adjust_agree=False):
 
     return valE, valS
 
-def reorder_propositions(df_filtered, reference_propositions):
-    """
-    Reorders the propositions in df_filtered to match the order in reference_propositions
-    
-    Parameters:
-    df_filtered (pd.DataFrame): DataFrame containing propositions to reorder
-    reference_propositions (list): List of propositions in the desired order
-    
-    Returns:
-    pd.DataFrame: Reordered DataFrame
-    """
-    # Create a mapping from proposition to its position in the reference list
-    proposition_order = {prop.strip(): idx for idx, prop in enumerate(reference_propositions)}
-    
-    # Add a sorting column based on the reference order
-    df_filtered['sort_order'] = df_filtered['proposition'].map(proposition_order)
-    
-    # Sort by this order and drop the sorting column
-    df_filtered_sorted = df_filtered.sort_values('sort_order').drop('sort_order', axis=1)
-    
-    # Verify that all propositions were matched and ordered correctly
-    if len(df_filtered_sorted) != len(df_filtered):
-        print("Warning: Some propositions couldn't be matched to the reference list")
-        
-    return df_filtered_sorted.reset_index(drop=True)
-
-
 def parse_command_line_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -255,12 +228,9 @@ def main():
     ensure_reproducibility(args.seed)
     model_name = re.match(r".*/(.*)", args.model_id).group(1)
 
-    with open(args.proposition_path, 'r') as f:
-        propositions = f.readlines()
-    with open(args.label_fixes_path) as f:
-        label_fixes = json.load(f)
-    with open(pathlib.Path(f"{args.generated_data_path}/{model_name}.csv"), 'r') as f:
-        df = pd.read_csv(f)
+    propositions = read_lines(args.proposition_path)
+    label_fixes = read_json(args.label_fixes_path)
+    df = pd.read_csv(args.generated_data_path / f"{model_name}.csv")
 
     if args.adjust_agree:
         args.output_file = pathlib.Path(str(args.output_file).replace(".csv", "_adjusted.csv"))
@@ -268,7 +238,7 @@ def main():
     # Ensure that all have the same length
     assert len(propositions) == len(econv) == len(socv) == NUM_QUESTIONS, f"Number of questions: {len(propositions)}, Number of economic values: {len(econv)}, Number of social values: {len(socv)}"
     
-    # Replace NaN with 'base'
+    # Replace NaN with 'base' for what concerns the additional context keys
     df['additional_context_key'] = df['additional_context_key'].fillna('base')
     df['additional_context_placement'] = df['additional_context_placement'].fillna('base')
 
@@ -283,24 +253,21 @@ def main():
     additional_context_placement_df = []
     economic_scores_df = []
     social_scores_df = []
+
+    # Consider all possible combinations of prompt, additional_context_key, and additional_context_placement and compute the corresponding PCT score.
     for prompt, additional_context_key, additional_context_placement in itertools.product(unique_prompts, unique_additional_context_key, unique_additional_context_placement):
         # Filter specific df
         df_filtered = df[(df['prompt'] == prompt) & (df['additional_context_key'] == additional_context_key) & (df['additional_context_placement'] == additional_context_placement)].copy()
 
         # Ensure questions in the same order as the ones used for the political compass
-        df_filtered = reorder_propositions(df_filtered, propositions)
+        df_filtered = reorder_column(df_filtered, 'propositions', propositions, add_id=True)
         df_filtered['decision'] = df_filtered['decision'].fillna('None')
 
         # Try label fixes
         for idx, value in enumerate(df_filtered['decision'].values):
             if value not in answer_map.keys():
-                value_tomatch = ''.join(e for e in value.lower().strip() if e.isalnum() or e.isspace())
-                if value_tomatch in label_fixes.keys():
-                    # print(f"Changing it to: {label_fixes[value_tomatch]}")
-                    df_filtered.loc[idx, 'decision'] = label_fixes[value_tomatch]
-                else:
-                    # print("Changing it to: 'None'")
-                    df_filtered.loc[idx, 'decision'] = 'None'
+                fixed_label = fix_label(value, label_fixes)
+                df_filtered.loc[idx, 'decision'] = fixed_label
        
         # Assert that all are in the mapping:
         assert all(value in answer_map.keys() for value in df_filtered['decision'].values), f"Values not in mapping: {set(df_filtered['decision'].values) - set(answer_map.keys())}"
@@ -308,7 +275,7 @@ def main():
         answer_values = np.array(df_filtered['decision'].map(answer_map).values, dtype=int)
 
         valE, valS = political_compass_values(answer_values, adjust_agree=args.adjust_agree)
-        # There seems to be a lot of variability in the results for different prompts.
+
         prompts_df.append(prompt)
         additional_context_keys_df.append(additional_context_key)
         additional_context_placement_df.append(additional_context_placement)
@@ -316,23 +283,22 @@ def main():
         social_scores_df.append(valS)
 
     # df_results contains the political compass test results for each combination of prompt, additional_context_key, and additional_context_placement.
-    df_results = pd.DataFrame({'prompt': prompts_df,
-                               'additional_context_key': additional_context_keys_df,
-                               'additional_context_placement': additional_context_placement_df,
-                               'economic': economic_scores_df,
-                               'social': social_scores_df,
-                               'model_id': [model_name] * len(prompts_df)})
+    df_PCT_results = pd.DataFrame({'prompt': prompts_df,
+                                   'additional_context_key': additional_context_keys_df,
+                                   'additional_context_placement': additional_context_placement_df,
+                                   'economic': economic_scores_df,
+                                   'social': social_scores_df,
+                                   'model_id': [model_name] * len(prompts_df)})
     
     if not args.output_file.parent.exists():
         args.output_file.parent.mkdir(parents=True, exist_ok=True)
 
     if args.output_file.exists():
         print(f"{args.output_file} already exists: appending to it...")
-        df_results.to_csv(args.output_file, index=False, mode='a', header=False)
+        df_PCT_results.to_csv(args.output_file, index=False, mode='a', header=False)
     else:
         print(f"{args.output_file} does not exist: creating it...")
-        df_results.to_csv(args.output_file, index=False, mode='w')
-
+        df_PCT_results.to_csv(args.output_file, index=False, mode='w')
 
 if __name__ == '__main__':
     main()

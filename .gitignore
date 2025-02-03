@@ -32,3 +32,6 @@ outputs_touse.txt
 
 # out files
 *.out
+
+# python notebooks for not
+*.ipynb
