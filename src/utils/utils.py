@@ -4,7 +4,6 @@ import torch
 import json
 import logging
 import random
-import json
 import pathlib
 import numpy as np
 from transformers import AutoModelForCausalLM, AutoTokenizer
