@@ -201,16 +201,36 @@ def open_to_closed(model_data_id: str,
     explanations = []
     cnt_wrong = 0
     cnt_tot = 0
+    # Double check just to save and make sure it goes alright
+    from copy import deepcopy as dp
+    all_outputs_copy = dp(all_outputs)
+    for invalid_idx in invalid_positions:
+        all_outputs_copy.insert(invalid_idx, "None")
+    """# Save to file just as a copy
+    with open('outputs.txt', 'w') as f:
+        for output in all_outputs_copy:
+            f.write(f"{output}\n\n\n\n\n")
+    """
     for idx, output in enumerate(all_outputs):
         # If the output is invalid, we will append None to the decisions and explanations as process_json_string will return None.
+        cnt_tot += 1
         output_dict = process_json_string(output)
+        # If the json fixing fails -> Append None and move on
         if output_dict == "None":
             decisions.append("None")
             explanations.append("None")
             cnt_wrong += 1
-        else:
-            decisions.append(output_dict["Decision"])
-            explanations.append(output_dict["Explanation"])
+            continue
+        # Try to extract the decision and explanation from the output -> Account for possible key errors in the json structure
+        dec_app = 'None'
+        exp_app = 'None'
+        try:
+            dec_app = output_dict["Decision"]
+            exp_app = output_dict["Explanation"]
+        except KeyError:
+            cnt_wrong += 1
+        decisions.append(dec_app)
+        explanations.append(exp_app)
     logging.info(f"Failed to decode {cnt_wrong} out of {cnt_tot} outputs.")
 
     # Now None values to those that were previously identified.

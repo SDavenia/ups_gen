@@ -132,7 +132,7 @@ def process_json_string(json_str):
         # If that fails, try to fix the quotes
         try:
             fixed_json = fix_json_quotes(json_str)
-            print(fixed_json)
+            # print(fixed_json)
             return json.loads(fixed_json)
         except Exception as e:
             return "None"

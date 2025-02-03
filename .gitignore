@@ -25,6 +25,7 @@ old/
 
 # Trials
 failed_outputs.txt
+outputs_touse.txt
 
 # Tests
 *test*
