@@ -3,11 +3,12 @@ import re
 import torch
 import json
 import logging
+import json_repair as jr
 import random
-import json
 import pathlib
 import numpy as np
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import Union
 
 def prepare_logger(args) -> None:
     """
@@ -84,40 +85,10 @@ def load_model(model_id,
         model, tokenizer = add_pad_token(model_id, model, tokenizer)
         return model, tokenizer
 
-def fix_json_quotes(json_str: str) -> str:
-    """
-    Fix JSON strings that contain unescaped quotes within field values.
-    Only escapes quotes that appear inside the value content, not the ones that delimit the keys and values.
-    
-    Args:
-        json_str (str): The JSON string to fix
-        
-    Returns:
-        str: The fixed JSON string that can be parsed by json.loads()
-    """
-    # First of all extract the json part of the output in case there are additional comments given by the model. -> Keep only the part of the output between the first and last curly braces
-    pattern_json = r"(\{[\s\S]*\})"
-    json_str = re.search(pattern_json, json_str).group(1).strip()
-    
-    # Extract the fields from explanation and decision
-    fields_pattern = r"\{*[\s\S]*\"Explanation\":\s*\"(.*)\",[\s\S]*\"Decision\":\s*\"(.*)\"[\s\S]*\}"
-    fields = re.findall(fields_pattern, json_str)[0]
-
-    explanation = fields[0]
-    decision = fields[1]
-
-    decision_fixed = decision.replace('"', '\\"')
-    explanation_fixed = explanation.replace('"', '\\"')
-
-    # Now replace it back in json_str
-    json_str = json_str.replace(decision, decision_fixed)
-    json_str = json_str.replace(explanation, explanation_fixed)
-    return json_str
-
-def process_json_string(json_str):
+def process_json_string(json_str) -> Union[dict, str]:
     """
     Process a JSON string and return a Python dictionary.
-    Handles both valid JSON and JSON with unescaped quotes.
+    It tries to fix invalid JSON formats using jr. Returns None if output is not a valid JSON.
     
     Args:
         json_str (str): The JSON string to process
@@ -125,19 +96,12 @@ def process_json_string(json_str):
     Returns:
         dict: The parsed JSON data
     """
-    # Try to parse normally
-    try:
-        # First try to parse as-is
-        return json.loads(json_str)
-    except json.JSONDecodeError:
-        # If that fails, try to fix the quotes
-        try:
-            fixed_json = fix_json_quotes(json_str)
-            # print(fixed_json)
-            return json.loads(fixed_json)
-        except Exception as e:
-            return "None"
-    except Exception as e:
+    # Fix json and return
+    repaired_json = jr.repair_json(json_str, return_objects=True)
+    # If the output is simply a string and not a json file it means it failed.
+    if isinstance(repaired_json, dict):
+        return repaired_json
+    else:
         return "None"
 
 
@@ -215,3 +179,68 @@ def read_json(file_path: pathlib.Path):
 def read_lines(file_path: pathlib.Path):
     with open(file_path) as f:
         return f.readlines()
+
+"""
+def fix_json_quotes_response(json_str: str) -> str:
+    #
+    # Fix JSON strings that contain unescaped quotes within field values.
+    # First it works by extracting the JSON part of the output and then checks that the JSON string contains fields Explanation and Decision.
+    # Only escapes quotes that appear inside the value content, not the ones that delimit the keys and values.
+    
+    # Args:
+    #     json_str (str): The JSON string to fix
+        
+    # Returns:
+    #     str: The fixed JSON string that can be parsed by json.loads()
+    #
+    # First of all extract the json part of the output in case there are additional comments given by the model. -> Keep only the part of the output between the first and last curly braces
+    pattern_json = r"(\{[\s\S]*\})"
+    json_str = re.search(pattern_json, json_str).group(1).strip()
+    
+    # Extract the fields from explanation and decision
+    fields_pattern = r"\{*[\s\S]*\"response\":\s*\"(.*)\""
+    fields = re.findall(fields_pattern, json_str)[0]
+
+    explanation = fields[0]
+    decision = fields[1]
+
+    decision_fixed = decision.replace('"', '\\"')
+    explanation_fixed = explanation.replace('"', '\\"')
+
+    # Now replace it back in json_str
+    json_str = json_str.replace(decision, decision_fixed)
+    json_str = json_str.replace(explanation, explanation_fixed)
+    return json_str
+"""
+"""
+def fix_json_quotes_explanation_decision(json_str: str) -> str:
+    #
+    # Fix JSON strings that contain unescaped quotes within field values.
+    # First it works by extracting the JSON part of the output and then checks that the JSON string contains fields Explanation and Decision.
+    # Only escapes quotes that appear inside the value content, not the ones that delimit the keys and values.
+    
+    # Args:
+    #     json_str (str): The JSON string to fix
+        
+    # Returns:
+    #     str: The fixed JSON string that can be parsed by json.loads()
+    #
+    # First of all extract the json part of the output in case there are additional comments given by the model. -> Keep only the part of the output between the first and last curly braces
+    pattern_json = r"(\{[\s\S]*\})"
+    json_str = re.search(pattern_json, json_str).group(1).strip()
+    
+    # Extract the fields from explanation and decision
+    fields_pattern = r"\{*[\s\S]*\"Explanation\":\s*\"(.*)\",[\s\S]*\"Decision\":\s*\"(.*)\"[\s\S]*\}"
+    fields = re.findall(fields_pattern, json_str)[0]
+
+    explanation = fields[0]
+    decision = fields[1]
+
+    decision_fixed = decision.replace('"', '\\"')
+    explanation_fixed = explanation.replace('"', '\\"')
+
+    # Now replace it back in json_str
+    json_str = json_str.replace(decision, decision_fixed)
+    json_str = json_str.replace(explanation, explanation_fixed)
+    return json_str
+"""

@@ -53,10 +53,19 @@ def parse_command_line_arguments():
         "--batch_size", type=int, default=1, help="Batch size for generation"
     )
 
+    """
     parser.add_argument(
         "--closed_domain",
         action="store_true",
         help="Whether to use the closed form of the prompts. Defaults to False",
+    )
+    """
+    parser.add_argument(
+        "--prompt_question_type",
+        type=str,
+        default='open',
+        choices=['closed_domain', 'open_domain', 'open_domain_neutral'],
+        help="Which set of prompts to utilize. Defaults to 'open'",
     )
 
     parser.add_argument(
@@ -116,15 +125,17 @@ def parse_command_line_arguments():
     return parser.parse_args()
 
     
-def load_files(proposition_path, prompts_path, generation_kwargs_path, closed_domain):
+def load_files(proposition_path, prompts_path, generation_kwargs_path, prompt_question_type):
     with open(proposition_path, "r") as f:
         propositions = f.read().splitlines()
     with open(prompts_path, "r") as f:
         prompts = json.load(f)
-        if closed_domain:
+        if prompt_question_type == 'closed_domain':
             prompts = prompts["closed_domain"]
-        else:
+        elif prompt_question_type == 'open_domain':
             prompts = prompts["open_domain"]
+        elif prompt_question_type == 'open_domain_neutral':
+            prompts = prompts["open_domain_neutral"]
     with open(generation_kwargs_path, "r") as f:
         generation_kwargs = json.load(f)
     return propositions, prompts, generation_kwargs
@@ -133,7 +144,7 @@ def load_files(proposition_path, prompts_path, generation_kwargs_path, closed_do
 def log_arguments(args):
     logging.info(f"Model ID: {args.model_id}")
     logging.info(f"Batch Size: {args.batch_size}")
-    logging.info(f"Closed Domain questions: {args.closed_domain}")
+    logging.info(f"Using prompt questions in format: {args.prompt_question_type}")
     logging.info(f"Format Output to JSON: {args.format_to_json}")
     logging.info(f"Additional Context Key: {args.additional_context_key}")
     logging.info(f"Additional Context Placement: {args.additional_context_placement}")
@@ -158,7 +169,7 @@ def main():
         args.proposition_path,
         args.prompts_path,
         args.generation_kwargs_path,
-        args.closed_domain,
+        args.prompt_question_type,
     )
     # For testing purposes only keep the first 2 propositions and prompts.
     if args.test:
@@ -169,7 +180,7 @@ def main():
     if args.test_large:
         propositions = propositions[:10]
         prompts = prompts[:5]
-        generation_kwargs = {"max_new_tokens": 100, "temperature": 0.6, "do_sample": True}
+        # generation_kwargs = {"max_new_tokens": 100, "temperature": 0.6, "do_sample": True}
     
     if args.small_complete_run:
         propositions = propositions
@@ -177,7 +188,7 @@ def main():
         # generation_kwargs is the default one used in Wright.
 
     # If working in closed domain declare the options
-    if args.closed_domain:
+    if args.prompt_question_type == 'closed_domain':
         options = ['Strongly disagree', 'Disagree', 'Agree', 'Strongly agree']
     else:
         options = None
@@ -215,18 +226,15 @@ def main():
             formatted_prompts,
             device,
             batch_size=args.batch_size,
+            format_to_json=args.format_to_json,
             **generation_kwargs
         )
-    if args.test:
-        logging.info(f"Generated outputs: {[repr(x) for x in generated_outputs]}")
     
     # Check whether they are valid
+    """if args.model_id == "mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated":
+        valid_outputs = ['valid'] * len(generated_outputs)
+    else:"""
     valid_outputs = [validate_completion(x) for x in generated_outputs]
-    if args.test:
-        for i in range(len(valid_outputs)):
-            print(generated_outputs[i])
-            print(f"{'valid' if valid_outputs[i] == 'valid' else 'invalid'}")
-            print(f"{' - ' * 20}")
     logging.info(f"Valid outputs: {len([x for x in valid_outputs if x == 'valid'])} / {len(valid_outputs)}")
     
     # If for testing no save -> return
@@ -253,8 +261,10 @@ def main():
         print(output_df.head())
     # If test include it in the name.
     additional_naming = "_test" if args.test else "_test_large" if args.test_large else "_small_complete_run" if args.small_complete_run else ""
+    additional_naming += "_neutral" if args.prompt_question_type == 'open_domain_neutral' else ""
+    additional_naming += "_closed" if args.prompt_question_type == 'closed_domain' else ""
     # additional_naming = "_test" if args.test else "_test_large" if args.test_large else ""
-    output_file = args.output_path / f"{model_name}{additional_naming}.csv"
+    output_file = args.output_path / f"{model_name}{additional_naming}{'_json' if args.format_to_json else ''}.csv"
     if output_file.exists():
         logging.info(f"{output_file} alread exist: appending to it...")
         output_df.to_csv(output_file, index=False, mode='a', header=False)
