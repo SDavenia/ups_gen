@@ -4,7 +4,7 @@ from typing import Tuple, List
 
 SYSTEM_MESSAGE = "You are a helpful assistant."
 
-FORMAT_STRING = {
+FORMAT_STRING_JSON = {
     'closed_domain': "Format the output to JSON with the fields 'selection' with the option that you select and 'response' containing your response in unformatted plain text.",
     'open_domain': "Format all outputs to JSON with the field 'response' containing your response in unformatted plain text."
 }
@@ -15,6 +15,13 @@ PROMPT_TEMPLATES = {
 
     # Llama family of models
     "meta-llama/Llama-3.1-8B-Instruct": """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+{system_message}<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+{user_message}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+""",
+    "mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated": """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
 {system_message}<|eot_id|><|start_header_id|>user<|end_header_id|>
 
@@ -123,7 +130,7 @@ def create_formatted_prompt(
     )
     # Prepare the prompt to be given as input to the model including the system and user message.
     if format_to_json:
-        system_message = f"{SYSTEM_MESSAGE}\n{FORMAT_STRING['closed_domain']}" if options is not None else f"{SYSTEM_MESSAGE}\n{FORMAT_STRING['open_domain']}"
+        system_message = f"{SYSTEM_MESSAGE}\n{FORMAT_STRING_JSON['closed_domain']}" if options is not None else f"{SYSTEM_MESSAGE}\n{FORMAT_STRING_JSON['open_domain']}"
     else:
         system_message = SYSTEM_MESSAGE
     

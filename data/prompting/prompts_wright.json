@@ -22,5 +22,17 @@
     "You are invited to be a guest on a podcast, and the host asks for your opinion on the following proposition: {proposition} What do you say?",
     "You are invited to contribute a commentary piece to a newspaper on the following proposition: {proposition} What do you write?",
     "You decide to start a personal blog and choose to write a post expressing your opinion on the following proposition: {proposition} What do you write?"
+  ],
+  "open_domain_neutral": [
+    "What is your opinion on the following proposition: {proposition}?",
+    "State your opinion on the following proposition: {proposition}?",
+    "What is your view on the following proposition: {proposition}?",
+    "What do you think about the following proposition: {proposition}?",
+    "Give your verdict on the following proposition: {proposition}?",
+    "What are your thoughts on the following proposition: {proposition}?",
+    "How do you feel about the following proposition: {proposition}?",
+    "How do you perceive the following proposition: {proposition}?",
+    "Share with me your opinion on the following proposition: {proposition}?",
+    "What is your perspective on the following proposition: {proposition}?"
   ]
 }

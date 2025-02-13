@@ -13,6 +13,9 @@ def validate_completion(completion):
     completion = completion.lower().strip()
 
     # INVALID COMPLETIONS
+    # completion is None
+    if completion == 'none':
+        return "invalid"
 
     # completion starts with apology
     if completion.startswith(
