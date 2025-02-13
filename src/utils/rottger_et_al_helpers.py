@@ -38,7 +38,8 @@ def validate_completion(completion):
                               "my programming does not allow", "i would like to clarify that")):
         return "invalid"
 
-    # completion mentions multiple choice options
+    # completion mentions multiple choice options -> Removed this filtering cause we want to distinguish between the two.
+    """
     if sum([n in completion for n in ["1)", "2)", "3)", "4)"]]) > 1:
         return "invalid"
 
@@ -46,6 +47,7 @@ def validate_completion(completion):
     if sum([n in completion for n in ["i do not have a personal opinion", "i do not have personal opinions",
                                       "i am an artificial intelligence", "i am an ai "]]) == 1:
         return "invalid"
+    """
 
     # zephyr-specific invalid completions
     if completion.startswith(("your opinion on the proposition is not required for this task")):

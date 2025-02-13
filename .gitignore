@@ -35,3 +35,6 @@ outputs_touse.txt
 
 # python notebooks for not
 *.ipynb
+
+# Result plots
+*.png
