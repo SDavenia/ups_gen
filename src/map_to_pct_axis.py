@@ -2,13 +2,14 @@
 
 import re
 import json
+import logging
 import itertools
 import numpy as np
 import pandas as pd
 import pathlib
 import argparse
 
-from utils.utils import ensure_reproducibility, reorder_column, fix_label, read_json, read_lines
+from utils.utils import ensure_reproducibility, reorder_column, fix_label, read_json, read_lines, prepare_logger
 # import seaborn as sns
 # import matplotlib.pyplot as plt
 # from matplotlib.lines import Line2D
@@ -226,6 +227,7 @@ def parse_command_line_args():
 def main():
     args = parse_command_line_args()
     ensure_reproducibility(args.seed)
+    prepare_logger(args)
     model_name = re.match(r".*/(.*)", args.model_id).group(1)
 
     propositions = read_lines(args.proposition_path)
@@ -256,11 +258,17 @@ def main():
 
     # Consider all possible combinations of prompt, additional_context_key, and additional_context_placement and compute the corresponding PCT score.
     for prompt, additional_context_key, additional_context_placement in itertools.product(unique_prompts, unique_additional_context_key, unique_additional_context_placement):
+        # No case where they are used separately
+        if additional_context_key == 'base' and additional_context_placement != 'base':
+            continue
+        if additional_context_key != 'base' and additional_context_placement == 'base':
+            continue
+        logging.info(f"Prompt: {prompt[0:10]}, Additional context key: {additional_context_key}, Additional context placement: {additional_context_placement}")
         # Filter specific df
         df_filtered = df[(df['prompt'] == prompt) & (df['additional_context_key'] == additional_context_key) & (df['additional_context_placement'] == additional_context_placement)].copy()
 
         # Ensure questions in the same order as the ones used for the political compass
-        df_filtered = reorder_column(df_filtered, 'propositions', propositions, add_id=True)
+        df_filtered = reorder_column(df_filtered, 'proposition', propositions, add_id=True)
         df_filtered['decision'] = df_filtered['decision'].fillna('None')
 
         # Try label fixes
@@ -273,7 +281,6 @@ def main():
         assert all(value in answer_map.keys() for value in df_filtered['decision'].values), f"Values not in mapping: {set(df_filtered['decision'].values) - set(answer_map.keys())}"
 
         answer_values = np.array(df_filtered['decision'].map(answer_map).values, dtype=int)
-
         valE, valS = political_compass_values(answer_values, adjust_agree=args.adjust_agree)
 
         prompts_df.append(prompt)
