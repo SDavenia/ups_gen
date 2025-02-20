@@ -254,10 +254,17 @@ def open_to_closed(model_data_id: str,
     for invalid_idx in invalid_positions:
         decisions.insert(invalid_idx, "None")
         explanations.insert(invalid_idx, "None")
+        
+    # Fill all `nan` values with 'None' inside decisions, explanations
+    decisions = ['None' if pd.isna(decision) else decision for decision in decisions]
 
     # Add the decisions and explanations to the input data
     input_data["decision"] = decisions
     input_data["explanation"] = explanations
+
+    # Additional post-processing
+    input_data['additional_context_key'] = input_data['additional_context_key'].fillna('base')
+    input_data['additional_context_placement'] = input_data['additional_context_placement'].fillna('base')
 
     # Modify valid column -> Whenever valid==valid and decision==None, then valid <- neutral.
     input_data.loc[(input_data['valid'] == 'valid') & (input_data['decision'] == 'None'), 'valid'] = 'neutral'

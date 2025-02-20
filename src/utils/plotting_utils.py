@@ -464,7 +464,7 @@ def create_context_placement_grid(
     df_binarized["decision"] = [
         "Disagree" if x == "Strongly Disagree" else x for x in df_binarized["decision"]
     ]
-
+    
     # Create each subplot
     for idx, placement in enumerate(placements):
         mask = (df_binarized["additional_context_key"] == additional_context_key) & (
