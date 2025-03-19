@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --output=sbatch_files/output/evaluate_answers_llama3_8B_abliterated.out
 #SBATCH --job-name evaluate_answers_llama3_8B_abliterated
-#SBATCH --dependency=afterok:12204122
+#SBATCH --dependency=afterok:13463159
 
 model_data_id="mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated"
 batch_size=8 # Reduce batch size to avoid OOM errors.

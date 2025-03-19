@@ -11,8 +11,7 @@ import pandas as pd
 from utils.utils import ensure_reproducibility, prepare_logger, load_model
 from utils.run import run_prompts
 from utils.data import create_formatted_prompts
-from utils.rottger_et_al_helpers import validate_completion
-
+# from utils.rottger_et_al_helpers import validate_completion
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser()
@@ -63,7 +62,7 @@ def parse_command_line_arguments():
     parser.add_argument(
         "--prompt_question_type",
         type=str,
-        default='open',
+        default='open_domain',
         choices=['closed_domain', 'open_domain', 'open_domain_neutral'],
         help="Which set of prompts to utilize. Defaults to 'open'",
     )
@@ -92,6 +91,13 @@ def parse_command_line_arguments():
         type=str,
         help="In what part of the prompt the additional context should be specified",
         choices=[None, 'system-beginning', 'system-end', 'user-beginning', 'user-end']
+    )
+
+    parser.add_argument(
+        "--jailbreak_option",
+        type=str,
+        help="Option to be used in the jailbreak prompt",
+        choices=["jail-01", "jail-02", "jail-03", "jail-04", "jail-05"]
     )
 
     parser.add_argument(
@@ -156,7 +162,15 @@ def main():
     args = parse_command_line_arguments()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model_name = re.match(r".*/(.*)", args.model_id).group(1)
-    
+
+    additional_naming = "_test" if args.test else "_test_large" if args.test_large else "_small_complete_run" if args.small_complete_run else ""
+    additional_naming += "_neutral" if args.prompt_question_type == 'open_domain_neutral' else ""
+    additional_naming += "_closed" if args.prompt_question_type == 'closed_domain' else ""
+    additional_naming += f"_{args.jailbreak_option}"
+    additional_naming += "_json" if args.format_to_json else ""
+    output_file = args.output_path / f"{model_name}{additional_naming}{'_json' if args.format_to_json else ''}.csv"
+
+
     assert args.additional_context_key is None or args.additional_context_placement is not None, "If additional_context_key is specified, additional_context_placement must be specified as well."
 
     prepare_logger(args)
@@ -209,6 +223,7 @@ def main():
                                                                       model_id=args.model_id,
                                                                       format_to_json=args.format_to_json,
                                                                       options=options,
+                                                                      jailbreak_option=args.jailbreak_option,
                                                                       additional_context=additional_context,
                                                                       additional_context_placement=args.additional_context_placement
                                                                       )
@@ -233,9 +248,11 @@ def main():
     # Check whether they are valid
     """if args.model_id == "mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated":
         valid_outputs = ['valid'] * len(generated_outputs)
-    else:"""
+    else:
     valid_outputs = [validate_completion(x) for x in generated_outputs]
     logging.info(f"Valid outputs: {len([x for x in valid_outputs if x == 'valid'])} / {len(valid_outputs)}")
+    """
+    valid_outputs = ['valid'] * len(generated_outputs)
     
     # If for testing no save -> return
     if args.no_save:
@@ -247,6 +264,7 @@ def main():
     prompts_extended, proposition_extended = zip(*prompt_propositions)
     # Also include the generation_kwargs in the rows.
     all_generation_kwargs = [generation_kwargs] * len(proposition_extended)
+    all_jailbreak_option = [args.jailbreak_option] * len(proposition_extended)
     output_df = pd.DataFrame({
         "proposition": proposition_extended,
         "prompt": prompts_extended,
@@ -255,16 +273,12 @@ def main():
         "valid": valid_outputs,
         "additional_context_key": args.additional_context_key,
         "additional_context_placement": args.additional_context_placement,
+        "jailbreak_option": all_jailbreak_option,
         "generation_kwargs": all_generation_kwargs
     })
     if args.test:
         print(output_df.head())
     # If test include it in the name.
-    additional_naming = "_test" if args.test else "_test_large" if args.test_large else "_small_complete_run" if args.small_complete_run else ""
-    additional_naming += "_neutral" if args.prompt_question_type == 'open_domain_neutral' else ""
-    additional_naming += "_closed" if args.prompt_question_type == 'closed_domain' else ""
-    # additional_naming = "_test" if args.test else "_test_large" if args.test_large else ""
-    output_file = args.output_path / f"{model_name}{additional_naming}{'_json' if args.format_to_json else ''}.csv"
     if output_file.exists():
         logging.info(f"{output_file} alread exist: appending to it...")
         output_df.to_csv(output_file, index=False, mode='a', header=False)

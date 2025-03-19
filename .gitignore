@@ -14,6 +14,8 @@ notes.txt
 
 *generation
 *generation_processed
+*generation copy
+*generation_processed copy
 *results_pct
 
 # Push data to hf
@@ -38,3 +40,6 @@ outputs_touse.txt
 
 # Result plots
 *.png
+
+# SLURM
+*.sh

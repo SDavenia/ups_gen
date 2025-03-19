@@ -118,7 +118,7 @@ def parse_command_line_args():
     parser.add_argument(
         "--prompt_question_type",
         type=str,
-        default='open',
+        default='open_domain',
         choices=['closed_domain', 'open_domain', 'open_domain_neutral'],
         help="Which set of prompts to utilize. Defaults to 'open'",
     )
@@ -131,6 +131,13 @@ def parse_command_line_args():
         "--sampling_kwargs_path",
         type=pathlib.Path,
         default=pathlib.Path('../data/prompting/sampling_args_wright.json'),
+    )
+
+    parser.add_argument(
+        "--jailbreak_option",
+        type=str,
+        help="Option to be used in the jailbreak prompt",
+        choices=["jail-01", "jail-02", "jail-03", "jail-04", "jail-05"]
     )
 
     # Only for testing purposes
@@ -158,6 +165,7 @@ def open_to_closed(model_data_id: str,
                    device: torch.device,
                    test: bool,
                    test_large: bool,
+                   jailbreak_option: str,
                    prompt_question_type: str,
                    small_complete_run: bool,
                    format_to_json: bool,
@@ -174,6 +182,8 @@ def open_to_closed(model_data_id: str,
     additional_naming = "_test" if test else "_test_large" if test_large else ""
     # Add string in name to check if the model is open to neutral domain.
     additional_naming += "_neutral" if prompt_question_type == "open_domain_neutral" else ""
+    additional_naming += f"_{jailbreak_option}"
+
     # additional_naming = "_test_large" if test else "_test_large" if test_large else "_small_complete_run" if small_complete_run else ""
     input_data_dir = input_dir / f"{model_name}{additional_naming}{'_json' if format_to_json else ''}.csv"
     output_data_dir = output_dir / f"{model_name}{additional_naming}{'_json' if format_to_json else ''}.csv"
@@ -181,7 +191,6 @@ def open_to_closed(model_data_id: str,
     print(f"Reading input data from: {input_data_dir}")
     with open(input_data_dir, "r") as f:
         input_data = pd.read_csv(input_data_dir)
-    print(f"input data is:\n{input_data}")
 
     logging.info("Succesfully loaded input data.")
     if test:
@@ -193,15 +202,15 @@ def open_to_closed(model_data_id: str,
     logging.info("Succesfully loaded evaluator model.")
     
     # To save up some computations, we will only process the valid inputs
-    invalid_positions = []      # Contains the positions of invalid inputs which are not processed by the model.
+    # invalid_positions = []      # Contains the positions of invalid inputs which are not processed by the model.
     prepared_model_inputs = []  # Contains the prompts formatted to be passed as input to the model
     for idx, row in input_data.iterrows():
-        if row['valid'] == 'invalid':
+        """if row['valid'] == 'invalid':
             invalid_positions.append(idx)
-        else:
-            prepared_user_prompt = PROMPT.replace('[Opinion]', row["generated_answer"].strip()).replace('[Proposition]', row["proposition"].strip())
-            prepared_model_input = PROMPT_TEMPLATES[EVALUATOR_MODEL_ID].format(user_message=prepared_user_prompt)
-            prepared_model_inputs.append(prepared_model_input)
+        else:"""
+        prepared_user_prompt = PROMPT.replace('[Opinion]', row["generated_answer"].strip()).replace('[Proposition]', row["proposition"].strip())
+        prepared_model_input = PROMPT_TEMPLATES[EVALUATOR_MODEL_ID].format(user_message=prepared_user_prompt)
+        prepared_model_inputs.append(prepared_model_input)
     logging.info("Succesfully prepared model inputs.")
 
     # Run the prompts through the model
@@ -220,11 +229,12 @@ def open_to_closed(model_data_id: str,
     cnt_wrong = 0
     cnt_tot = 0
     # Double check just to save and make sure it goes alright
+    """
     from copy import deepcopy as dp
     all_outputs_copy = dp(all_outputs)
     for invalid_idx in invalid_positions:
         all_outputs_copy.insert(invalid_idx, "None")
-    """# Save to file just as a copy
+    # Save to file just as a copy
     with open('outputs.txt', 'w') as f:
         for output in all_outputs_copy:
             f.write(f"{output}\n\n\n\n\n")
@@ -251,16 +261,20 @@ def open_to_closed(model_data_id: str,
     logging.info(f"Failed to decode {cnt_wrong} out of {cnt_tot} outputs.")
 
     # Now None values to those that were previously identified and not passed through the evaluator model.
+    """
     for invalid_idx in invalid_positions:
         decisions.insert(invalid_idx, "None")
         explanations.insert(invalid_idx, "None")
+    """
 
     # Add the decisions and explanations to the input data
     input_data["decision"] = decisions
     input_data["explanation"] = explanations
 
     # Modify valid column -> Whenever valid==valid and decision==None, then valid <- neutral.
-    input_data.loc[(input_data['valid'] == 'valid') & (input_data['decision'] == 'None'), 'valid'] = 'neutral'
+    # input_data.loc[(input_data['valid'] == 'valid') & (input_data['decision'] == 'None'), 'valid'] = 'neutral'
+    # Modify valid column -> Set to valid if decision is not None.
+    input_data.loc[input_data['decision'] == 'None', 'valid'] = 'invalid'
 
     # Write the data to the output directory
     if not output_data_dir.exists():
@@ -304,6 +318,7 @@ def main():
                    device=device,
                    test=args.test,
                    test_large=args.test_large,
+                   jailbreak_option=args.jailbreak_option,
                    small_complete_run=args.small_complete_run,
                    prompt_question_type=args.prompt_question_type,
                    format_to_json=args.format_to_json,
