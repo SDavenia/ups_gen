@@ -271,6 +271,10 @@ def open_to_closed(model_data_id: str,
     input_data["decision"] = decisions
     input_data["explanation"] = explanations
 
+    # Additional post-processing
+    input_data['additional_context_key'] = input_data['additional_context_key'].fillna('base')
+    input_data['additional_context_placement'] = input_data['additional_context_placement'].fillna('base')
+
     # Modify valid column -> Whenever valid==valid and decision==None, then valid <- neutral.
     # input_data.loc[(input_data['valid'] == 'valid') & (input_data['decision'] == 'None'), 'valid'] = 'neutral'
     # Modify valid column -> Set to valid if decision is not None.

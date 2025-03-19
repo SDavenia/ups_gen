@@ -12,7 +12,7 @@ from utils.plotting_utils import plot_shaded_bars, create_context_placement_grid
 from utils.plotting_utils import plot_context_placement
 
 # Additional global variables that may be needed
-VALID_INVALID_MAP = {"valid": 1, "invalid": 0}
+VALID_INVALID_MAP = {"valid": 1, "invalid": 0, "neutral": 0.5}  # Neutral is considered invalid for sorting from most to least amount of answers.
 ANSWER_MAP = {
     "Strongly disagree": 0,
     "Strongly Disagree": 0,
@@ -117,9 +117,11 @@ def main():
     )
     generated_answers_df = pd.read_csv(input_generate_answers_dir)
     generated_answers_df.fillna("None", inplace=True)
+    """
+    # REMOVED SINCE NOW NEW LOGIC BEHIND HANDLING
     # Change valid -> invalid whenever the evaluator model contains None.
-    generated_answers_df['valid'] = ['invalid' if generated_answers_df['decision'][idx] == 'None' else 'valid' for idx in generated_answers_df.index]
-
+    # generated_answers_df['valid'] = ['invalid' if generated_answers_df['decision'][idx] == 'None' else 'valid' for idx in generated_answers_df.index]
+    """
     # Add proposition_id and prompt_id to the generated answers df
     proposition_to_id = {prop: idx for idx, prop in enumerate(generated_answers_df['proposition'].unique())}
     prompt_to_id = {prop: idx for idx, prop in enumerate(generated_answers_df['prompt'].unique())}
@@ -241,11 +243,10 @@ def generated_answers_plots(df: pd.DataFrame, output_dir: pathlib.Path):
                          output_plot_path=output_dir / f'decision_by_proposition_id_{additional_context_key}.png'
                          )
         logging.info(f"Succesfully plotted decisions by proposition id for {additional_context_key}. Saving it to {output_dir / f'decision_by_proposition_id_{additional_context_key}.png'}")
-    
     # One plot containing 4 plots showing the results for the 4 additional_context_keys.
     for additional_context_key in df["additional_context_key"].unique():
         # None does not have placement so ignore it.
-        if additional_context_key == 'None':
+        if additional_context_key == 'base':
             continue
         create_context_placement_grid(df, ANSWER_MAP_PLOTTING, additional_context_key, COLOR_MAP, output_plot_path=output_dir / f'context_placement_grid_{additional_context_key}.png')
         logging.info(f"Succesfully plotted decision by proposition id with {additional_context_key} across various context placements. Saving it to {output_dir / f'context_placement_grid_{additional_context_key}.png'}")
