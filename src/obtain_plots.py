@@ -3,15 +3,20 @@ import os
 import re
 import argparse
 import logging
+import copy
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from copy import deepcopy as dp
 from utils.utils import prepare_logger, fix_label, read_json
-from utils.plotting_utils import plot_shaded_bars, create_context_placement_grid
+from utils.plotting_utils import plot_shaded_bars, create_context_placement_grid, political_compass_base_plot_on_ax, add_datapoints
 from utils.plotting_utils import plot_context_placement
 
-# Additional global variables that may be needed
+
+JAILBREAK_OPTION = 'jail-03'
+ADDITIONAL_CONTEXT_PLACEMENT = 'user-beginning'
+
 VALID_INVALID_MAP = {"valid": 1, "invalid": 0, "neutral": 0.5}  # Neutral is considered invalid for sorting from most to least amount of answers.
 ANSWER_MAP = {
     "Strongly disagree": 0,
@@ -26,7 +31,7 @@ ANSWER_MAP = {
 }
 ANSWER_MAP_PLOTTING = ANSWER_MAP.copy()  # None has to be in between
 ANSWER_MAP_PLOTTING["None"] = 1.5
-ADDITIONAL_CONTEXT_KEY_CATEGORIES = ['wiki_mus', 'wiki_obj', 'wiki_pol']
+ADDITIONAL_CONTEXT_KEY_CATEGORIES = ['base', 'wiki_mus', 'wiki_obj', 'wiki_pol']
 
 COLOR_MAP = {
     "Strongly Disagree": "#8B0000",  # Dark Red (DarkRed)
@@ -54,12 +59,12 @@ def parse_command_line_args():
     parser.add_argument(
         "--output_plots_generated_answers_dir",
         type=pathlib.Path,
-        default=pathlib.Path("../data/plots_generated_answers/"),
+        default=pathlib.Path("../data/plots_generated_answers/specific/"),
     )
     parser.add_argument(
         "--output_plots_pct_results_dir",
         type=pathlib.Path,
-        default=pathlib.Path("../data/plots_pct_results/"),
+        default=pathlib.Path("../data/plots_pct_results/specific/"),
     )
 
     # Details of the model and generation options to be used
@@ -117,11 +122,7 @@ def main():
     )
     generated_answers_df = pd.read_csv(input_generate_answers_dir)
     generated_answers_df.fillna("None", inplace=True)
-    """
-    # REMOVED SINCE NOW NEW LOGIC BEHIND HANDLING
-    # Change valid -> invalid whenever the evaluator model contains None.
-    # generated_answers_df['valid'] = ['invalid' if generated_answers_df['decision'][idx] == 'None' else 'valid' for idx in generated_answers_df.index]
-    """
+
     # Add proposition_id and prompt_id to the generated answers df
     proposition_to_id = {prop: idx for idx, prop in enumerate(generated_answers_df['proposition'].unique())}
     prompt_to_id = {prop: idx for idx, prop in enumerate(generated_answers_df['prompt'].unique())}
@@ -170,87 +171,61 @@ def main():
     check_create_dir(output_pct_results_plots_dir)
     check_create_dir(output_pct_results_adjusted_plots_dir)
 
-    # Obtain the plots for the generated answers:
-    if args.pct_results_plots_only:
-        pass
-    else:
-        generated_answers_plots(generated_answers_df, output_generate_answers_plots_dir)
+    # Do the specific filtering
+    generated_answers_df = generated_answers_df[(generated_answers_df['additional_context_placement'] == ADDITIONAL_CONTEXT_PLACEMENT) & (generated_answers_df['jailbreak_option'] == JAILBREAK_OPTION)]
+    pct_results_df = pct_results_df[((pct_results_df['additional_context_placement'] == ADDITIONAL_CONTEXT_PLACEMENT) | (pct_results_df['additional_context_placement'] == 'base')) & (pct_results_df['jailbreak_option'] == JAILBREAK_OPTION)]
+    pct_results_adjusted_df = pct_results_adjusted_df[((pct_results_adjusted_df['additional_context_placement'] == ADDITIONAL_CONTEXT_PLACEMENT) | (pct_results_adjusted_df['additional_context_placement'] == 'base')) & (pct_results_adjusted_df['jailbreak_option'] == JAILBREAK_OPTION)]
+    # Create plots for generated answers.
+    # Distribution of answers by additional_context_key
+    plot_shaded_bars(generated_answers_df,
+                    'additional_context_key',
+                    'decision',
+                    decision_map=ANSWER_MAP_PLOTTING,
+                    color_map=COLOR_MAP,
+                    output_plot_path=args.output_plots_generated_answers_dir / model_name / 'decision_by_additional_context_key.png'
+                    )
+    logging.info(f"Succesfully plotted decisions by additional context key. Saving it to {args.output_plots_generated_answers_dir / 'decision_by_additional_context_key.png'}")
+    # Distribution of answers by prompt template
+    plot_shaded_bars(generated_answers_df,
+                    'prompt',
+                    'decision',
+                    short_column_a_chars=20,
+                    decision_map=ANSWER_MAP_PLOTTING,
+                    color_map=COLOR_MAP,
+                    output_plot_path=args.output_plots_generated_answers_dir / model_name / 'decision_by_prompt_id.png'
+                    )
+    # PCT results plots -> For each additional_context_key_type (base, pol, mus, obj) -> Obtain a PCT plot with the all the individual ones.
+    # Create each subplot
+    for context_key_start in ADDITIONAL_CONTEXT_KEY_CATEGORIES:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 12))
+        # Flatten axes for easier iteration
+        axes = axes.flatten()
 
-    # Obtain the plots for the PCT results (for both adjusted and unadjusted scores):
-    if args.generated_answers_plots_only:
-        pass
-    else:
-        pct_results_plot(pct_results_df, output_pct_results_plots_dir)
-        pct_results_plot(pct_results_adjusted_df, output_pct_results_adjusted_plots_dir)
+        df_filtered = pct_results_df[(pct_results_df['additional_context_key'].str.startswith(context_key_start))].copy()
+        ax = political_compass_base_plot_on_ax(axes[0])
+        add_datapoints(ax, df_filtered, hue_col='prompt_id', style_col='additional_context_key')
+        # Set title for each subplot
+        ax.set_title(f"PCT Results - Raw Scores")
 
-def pct_results_plot(df: pd.DataFrame, output_dir: pathlib.Path):
-    for additional_context_key_start in ADDITIONAL_CONTEXT_KEY_CATEGORIES:
-        plot_context_placement(df,
-                               context_key_start=additional_context_key_start,
-                               hue_prompt=True,
-                               output_plot_path=output_dir / f'additional_context_key_{additional_context_key_start}.png')
-        logging.info(f"Succesfully plotted PCT results for context {additional_context_key_start}. Saving it to {output_dir / f'additional_context_key_{additional_context_key_start}.png'}")
+        df_filtered_adjusted = pct_results_adjusted_df[(pct_results_adjusted_df['additional_context_key'].str.startswith(context_key_start))].copy()
+        ax = political_compass_base_plot_on_ax(axes[1])
+        add_datapoints(ax, df_filtered_adjusted, hue_col='prompt_id', style_col='additional_context_key')
+        # Set title for each subplot
+        ax.set_title(f"PCT Results - Adjusted Scores")
+        plt.tight_layout()
 
-def generated_answers_plots(df: pd.DataFrame, output_dir: pathlib.Path):
-    
-    # Plot shaded bars with valid/invalid responses when using various context keys.
-    plot_shaded_bars(
-        df,
-        "additional_context_key",
-        "valid",
-        decision_map=VALID_INVALID_MAP,
-        output_plot_path=output_dir / 'invalid_by_additional_context_key.png',
-    )
-    logging.info(
-        f"Succesfully plotted invalid responses by additional context key. Saving it to {output_dir / 'invalid_by_additional_context_key.png'}"
-    )
+        # Add a main title for the entire figure
+        titles_context_key_str = {
+        'wiki_mus': 'Wikipedia Music',
+        'wiki_obj': 'Wikipedia Object',
+        'wiki_pol': 'Wikipedia Political Person',
+        'base': 'Base',
+        }
+        fig.suptitle(f"PCT Results with {titles_context_key_str[context_key_start]} and Various Prompt IDs",
+                    fontsize=16, y=1.02)
+        plt.savefig(args.output_plots_pct_results_dir / model_name / f"pct_results_{context_key_start}.png")
+        logging.info(f"Saved PCT results plot for {context_key_start} to {args.output_plots_pct_results_dir / model_name  / f'pct_results_{context_key_start}.png'}")
 
-    # Plot shaded bars with valid/invalid responses when using various prompt templates.
-    plot_shaded_bars(
-        df,
-        'prompt', 'valid',
-        short_column_a_chars=20,
-        decision_map=VALID_INVALID_MAP,
-        output_plot_path=output_dir / 'invalid_by_prompt.png',
-    )
-    logging.info(f"Succesfully plotted invalid responses by prompt. Saving it to {output_dir / 'invalid_by_prompt.png'}")
-
-    # Plot shaded bars with valid invalid responses when using various context positions.
-    plot_shaded_bars(df,
-                     'additional_context_placement',
-                     'valid',
-                     decision_map=VALID_INVALID_MAP,
-                     output_plot_path=output_dir / 'invalid_by_additional_context_placement.png'
-                     )
-    logging.info(f"Succesfully plotted invalid responses by additional context placement. Saving it to {output_dir / 'invalid_by_additional_context_placement.png'}")
-
-    # Plot shaded bars with distribution of decisions according to the various contexts.
-    plot_shaded_bars(df,
-                     'additional_context_key',
-                     'decision',
-                     decision_map=ANSWER_MAP_PLOTTING,
-                     color_map=COLOR_MAP,
-                     output_plot_path=output_dir / 'decision_by_additional_context_key.png'
-                     )
-    logging.info(f"Succesfully plotted decisions by additional context key. Saving it to {output_dir / 'decision_by_additional_context_key.png'}")
-
-    # Plots about prompt robustness
-    # One plot for each additional_context_key -> Aggregate across various context placements.
-    for additional_context_key in df['additional_context_key'].unique():
-        plot_shaded_bars(df[(df['additional_context_key'] == additional_context_key)].copy(),
-                         'proposition_id', 'decision', short_column_a_chars=None, decision_map=ANSWER_MAP_PLOTTING,
-                         color_map=COLOR_MAP, remove_none=False,
-                         output_plot_path=output_dir / f'decision_by_proposition_id_{additional_context_key}.png'
-                         )
-        logging.info(f"Succesfully plotted decisions by proposition id for {additional_context_key}. Saving it to {output_dir / f'decision_by_proposition_id_{additional_context_key}.png'}")
-    # One plot containing 4 plots showing the results for the 4 additional_context_keys.
-    for additional_context_key in df["additional_context_key"].unique():
-        # None does not have placement so ignore it.
-        if additional_context_key == 'base':
-            continue
-        create_context_placement_grid(df, ANSWER_MAP_PLOTTING, additional_context_key, COLOR_MAP, output_plot_path=output_dir / f'context_placement_grid_{additional_context_key}.png')
-        logging.info(f"Succesfully plotted decision by proposition id with {additional_context_key} across various context placements. Saving it to {output_dir / f'context_placement_grid_{additional_context_key}.png'}")
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
+

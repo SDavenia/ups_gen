@@ -12,9 +12,8 @@ trial*
 try*
 notes.txt
 
-*generation
-*generation_processed
-*results_pct
+# Data
+*.csv
 
 # Push data to hf
 push_data_to_hf.py
@@ -22,6 +21,9 @@ extract_additional_context_wiki.py
 
 # old sbatch files
 old/
+
+# old folders
+*old/
 
 # Trials
 failed_outputs.txt
@@ -38,3 +40,8 @@ outputs_touse.txt
 
 # Result plots
 *.png
+
+# Scripts to ignore
+join_jailbreaks.py
+replace_nan_base.py
+obtain_plots_old.py

@@ -140,7 +140,6 @@ def add_datapoints(ax, df, hue_col, style_col, hue_order=None):
     markers = ["o", "s", "D", "X", "P", "^", "v", "<", ">", "*", "H", "8"]
     markers = markers[:num_markers]
     colors = sns.color_palette("colorblind", num_colors)
-
     sns.scatterplot(
         data=df,
         x="economic",
@@ -287,34 +286,44 @@ def political_compass_base_plot_on_ax(ax):
     return ax
 
 
-def plot_context_placement(df,
+def plot_jailbreak_options(df,
                            context_key_start,
                            hue_prompt=True,
-                           subplot_for='placement',
                            output_plot_dir=None,
                            output_plot_path=None):
     fig, axes = plt.subplots(2, 2, figsize=(12, 12))
-    placement_options = ['user-beginning', 'user-end', 'system-beginning', 'system-end']
+    # placement_options = ['user-beginning', 'user-end', 'system-beginning', 'system-end']
+    jailbreak_options = ['jail-02', 'jail-03', 'jail-04', 'jail-05']
+    """
     titles = {
         'user-beginning': 'User Beginning',
         'user-end': 'User End',
         'system-beginning': 'System Beginning',
         'system-end': 'System End'
     }
+    """
+    titles = {
+        'jail-05': 'Jail 5',
+        'jail-02': 'Jail 2',
+        'jail-03': 'Jail 3',
+        'jail-04': 'Jail 4'
+    }
     titles_context_key_str = {
         'wiki_mus': 'Wikipedia Music',
         'wiki_obj': 'Wikipedia Object',
         'wiki_pol': 'Wikipedia Political Person',
+        'base': 'Base',
     }
 
     # Flatten axes for easier iteration
     axes = axes.flatten()
 
     # Create each subplot
-    for idx, placement in enumerate(placement_options):
+    for idx, jailbreak in enumerate(jailbreak_options):
         # Filter data
-        df_filtered = df[(df['additional_context_placement'] == placement) & (df['additional_context_key'].str.startswith(context_key_start))].copy()
-        
+        df_filtered = df[(df['jailbreak_option'] == jailbreak) & (df['additional_context_key'].str.startswith(context_key_start))].copy()
+        print(f"df_filtered has length: {len(df_filtered)}")
+
         # Create base plot on the corresponding subplot
         ax = political_compass_base_plot_on_ax(axes[idx])
         
@@ -325,7 +334,7 @@ def plot_context_placement(df,
             add_datapoints(ax, df_filtered, hue_col='additional_context_key', style_col='prompt_id')
         
         # Set title for each subplot
-        ax.set_title(f"PCT Results - {titles[placement]}")
+        ax.set_title(f"PCT Results - {titles[jailbreak]}")
 
     # Adjust layout to prevent overlap
     plt.tight_layout()

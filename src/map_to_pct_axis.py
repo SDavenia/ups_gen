@@ -1,4 +1,4 @@
-# Takes as input the df with the decisions taken by the model and it returns a df with rows (prompt, additional_context_key, additional_context_placement, economic, social) along with the corresponding PCT test.
+# Takes as input the df with the decisions taken by the model and it returns a df with rows (prompt, additional_context_key, additional_context_placement, jailbreak_option, economic, social) along with the corresponding PCT test.
 
 import re
 import json
@@ -254,6 +254,7 @@ def main():
     unique_prompts = df['prompt'].unique()
     unique_additional_context_key = df['additional_context_key'].unique()
     unique_additional_context_placement = df['additional_context_placement'].unique()
+    unique_jailbreak_options = df['jailbreak_option'].unique()
 
     # Iterate through all possible combinations and return values to store in a new df
     prompts_df = []
@@ -261,17 +262,18 @@ def main():
     additional_context_placement_df = []
     economic_scores_df = []
     social_scores_df = []
+    jailbreak_options_df = []
 
-    # Consider all possible combinations of prompt, additional_context_key, and additional_context_placement and compute the corresponding PCT score.
-    for prompt, additional_context_key, additional_context_placement in itertools.product(unique_prompts, unique_additional_context_key, unique_additional_context_placement):
+    # Consider all possible combinations of prompt, additional_context_key, jailbreak_options and additional_context_placement and compute the corresponding PCT score.
+    for prompt, additional_context_key, additional_context_placement, jailbreak_option in itertools.product(unique_prompts, unique_additional_context_key, unique_additional_context_placement, unique_jailbreak_options):
         # No case where they are used separately
         if additional_context_key == 'base' and additional_context_placement != 'base':
             continue
         if additional_context_key != 'base' and additional_context_placement == 'base':
             continue
-        logging.info(f"Prompt: {prompt[0:10]}, Additional context key: {additional_context_key}, Additional context placement: {additional_context_placement}")
+        logging.info(f"Prompt: {prompt[0:10]}, Additional context key: {additional_context_key}, Additional context placement: {additional_context_placement}, Jailbreak option: {jailbreak_option}")
         # Filter specific df
-        df_filtered = df[(df['prompt'] == prompt) & (df['additional_context_key'] == additional_context_key) & (df['additional_context_placement'] == additional_context_placement)].copy()
+        df_filtered = df[(df['prompt'] == prompt) & (df['additional_context_key'] == additional_context_key) & (df['additional_context_placement'] == additional_context_placement) & (df['jailbreak_option'] == jailbreak_option) ].copy()
 
         # Ensure questions in the same order as the ones used for the political compass
         df_filtered = reorder_column(df_filtered, 'proposition', propositions, add_id=True)
@@ -294,11 +296,13 @@ def main():
         additional_context_placement_df.append(additional_context_placement)
         economic_scores_df.append(valE)
         social_scores_df.append(valS)
+        jailbreak_options_df.append(jailbreak_option)
 
     # df_results contains the political compass test results for each combination of prompt, additional_context_key, and additional_context_placement.
     df_PCT_results = pd.DataFrame({'prompt': prompts_df,
                                    'additional_context_key': additional_context_keys_df,
                                    'additional_context_placement': additional_context_placement_df,
+                                   'jailbreak_option': jailbreak_options_df,
                                    'economic': economic_scores_df,
                                    'social': social_scores_df,
                                    'model_id': [model_name_json] * len(prompts_df)})
