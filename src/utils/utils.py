@@ -73,8 +73,15 @@ def load_model(model_id,
         device (torch.device): The device to use.
         quantization_config (dict): The quantization configuration.
     """
-    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=precision).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(model_id, padding_side="left")
+    # Load on multiple gpus if big
+    if model_id == 'meta-llama/Llama-3.1-70B-Instruct':
+        model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-70B-Instruct", device_map='auto', torch_dtype='auto').to(device)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=precision).to(device)
+    if model_id == 'evolveon/Mistral-7B-Instruct-v0.3-abliterated':
+        tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3", padding_side="left")
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_id, padding_side="left")
     
     if quantization_config is not None:
         raise NotImplementedError("Quantization is not supported yet.")

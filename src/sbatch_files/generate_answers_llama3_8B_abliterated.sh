@@ -19,12 +19,14 @@ source ../../populate_env_vars.sh
 
 # Base generation
 echo "Generating answer with base model"
-python generate_answers.py --model_id $model_id --batch_size $batch_size --seed $seed
+python generate_answers.py --model_id $model_id --batch_size $batch_size --seed $seed --jailbreak_option $jailbreak_option
 
 # Generation with additional context -> need to specify additional context key and position
-for add_context_key in "wiki_mus_classical" "wiki_mus_heavy-metal" "wiki_mus_jazz" "wiki_mus_hip-pop" "wiki_mus_rock" "wiki_mus_pop" "wiki_obj_table" "wiki_obj_chair" "wiki_obj_sink" "wiki_pol_trump" "wiki_pol_obama" "wiki_pol_biden" "wiki_pol_bush"; do
-    for add_context_pos in "system-beginning" "system-end" "user-beginning" "user-end"; do
-        echo "Generating answer with additional context key: $add_context_key and position: $add_context_pos"
-        python generate_answers.py --model_id $model_id --batch_size $batch_size --seed $seed --additional_context_key $add_context_key --additional_context_placement $add_context_pos
+for jailbreak_option in "jail-01" "jail-02" "jail-03" "jail-04"; do
+    for add_context_key in "wiki_mus_classical" "wiki_mus_heavy-metal" "wiki_mus_jazz" "wiki_mus_hip-pop" "wiki_mus_rock" "wiki_mus_pop" "wiki_obj_table" "wiki_obj_chair" "wiki_obj_sink" "wiki_pol_trump" "wiki_pol_obama" "wiki_pol_biden" "wiki_pol_bush"; do
+        for add_context_pos in "system-beginning" "system-end" "user-beginning" "user-end"; do
+            echo "Generating answer with additional context key: $add_context_key, position: $add_context_pos and jailbreak option $jailbreak_option"
+            python generate_answers.py --model_id $model_id --batch_size $batch_size --seed $seed --additional_context_key $add_context_key --additional_context_placement $add_context_pos --jailbreak_option $jailbreak_option
+        done
     done
 done

@@ -12,6 +12,11 @@ trial*
 try*
 notes.txt
 
+*generation
+*generation_processed
+*generation copy
+*generation_processed copy
+*results_pct
 # Data
 *.csv
 
@@ -40,6 +45,9 @@ outputs_touse.txt
 
 # Result plots
 *.png
+
+# SLURM
+*.sh
 
 # Scripts to ignore
 join_jailbreaks.py

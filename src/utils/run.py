@@ -46,7 +46,7 @@ def run_prompts(
 
         # Generate outputs using the model
         # Llama-3-Instruct family of models require special handling for terminators.
-        if model.config._name_or_path == "meta-llama/Llama-3.1-8B-Instruct" or model.config._name_or_path == "mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated":
+        if model.config._name_or_path == "meta-llama/Llama-3.1-8B-Instruct" or model.config._name_or_path == "meta-llama/Llama-3.1-70B-Instruct" or model.config._name_or_path == "mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated":
             terminators = [
                 tokenizer.eos_token_id,
                 tokenizer.convert_tokens_to_ids("<|eot_id|>")
