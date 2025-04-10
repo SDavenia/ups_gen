@@ -11,7 +11,6 @@ import pandas as pd
 from utils.utils import ensure_reproducibility, prepare_logger, load_model
 from utils.run import run_prompts
 from utils.data import create_formatted_prompts
-# from utils.rottger_et_al_helpers import validate_completion
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser()

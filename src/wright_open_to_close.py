@@ -128,9 +128,9 @@ def parse_command_line_args():
         default=10
     )
     parser.add_argument(
-        "--sampling_kwargs_path",
+        "--evaluator_kwargs_path",
         type=pathlib.Path,
-        default=pathlib.Path('../data/prompting/sampling_args_wright.json'),
+        default=pathlib.Path('../data/prompting/evaluator_args_wright.json'),
     )
 
     parser.add_argument(
@@ -307,13 +307,13 @@ def main():
     # Open the file, assign the close scores and write to the output directory with the same name.
     if args.test:
         # generation_kwargs = {"max_new_tokens": 20, "temperature": 0.2, "do_sample": True}
-        generation_kwargs = json.load(args.sampling_kwargs_path.open())
+        generation_kwargs = json.load(args.evaluator_kwargs_path.open())
         logging.info("Running in test mode.")
     elif args.test_large:
-        generation_kwargs = json.load(args.sampling_kwargs_path.open())
+        generation_kwargs = json.load(args.evaluator_kwargs_path.open())
         logging.info("Running in test large mode.")
     else:
-        generation_kwargs = json.load(args.sampling_kwargs_path.open())
+        generation_kwargs = json.load(args.evaluator_kwargs_path.open())
         logging.info("Running with evaluator model normal mode.")
     open_to_closed(model_data_id=args.model_data_id,
                    input_dir=args.input_dir,

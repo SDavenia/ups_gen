@@ -1,55 +1,56 @@
-# VSCode and Relate
-.vscode
+# VSCode and system files
+.vscode/
 .DS_Store
-__pycache__
+__pycache__/
 
-# Access tokens:
+# Environment variables and tokens
 .env
 
-# My experiments
-explorations 
-trial*
-try*
-notes.txt
-
+# Data files
+*.csv
 *generation
 *generation_processed
 *generation copy
 *generation_processed copy
 *results_pct
-# Data
-*.csv
 
-# Push data to hf
-push_data_to_hf.py
-extract_additional_context_wiki.py
-
-# old sbatch files
-old/
-
-# old folders
-*old/
-
-# Trials
-failed_outputs.txt
-outputs_touse.txt
-
-# Tests
-*test*
-
-# out files
-*.out
-
-# python notebooks for not
+# Notebooks
 *.ipynb
+!visualize_pct_shifts.ipynb
+!visualize_fit_lmm.ipynb
 
 # Result plots
 *.png
 
-# SLURM
+# SLURM and output files
 *.sh
+*.out
+
+# Trials and test files
+*test*
+trial*
+try*
+failed_outputs.txt
+outputs_touse.txt
+
+# Explorations and notes
+explorations/
+notes.txt
 
 # Scripts to ignore
 join_jailbreaks.py
 replace_nan_base.py
 obtain_plots_old.py
+obtain_plots_unused.py
+plotting_utils_unused.py
+rottger_et_al_helpers_unused.py
+keys_unused.py
+generation_args_wright_unused.json
+
+# Hugging Face push scripts
+push_data_to_hf.py
+extract_additional_context_wiki.py
+
+# Old files and folders
+old/
+*old/
