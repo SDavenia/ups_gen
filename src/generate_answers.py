@@ -50,28 +50,6 @@ def parse_command_line_arguments():
     parser.add_argument(
         "--batch_size", type=int, default=1, help="Batch size for generation"
     )
-
-    """
-    parser.add_argument(
-        "--closed_domain",
-        action="store_true",
-        help="Whether to use the closed form of the prompts. Defaults to False",
-    )
-    """
-    parser.add_argument(
-        "--prompt_question_type",
-        type=str,
-        default='open_domain',
-        choices=['closed_domain', 'open_domain', 'open_domain_neutral'],
-        help="Which set of prompts to utilize. Defaults to 'open'",
-    )
-
-    parser.add_argument(
-        "--format_to_json",
-        action="store_true",
-        help="If true, the model is prompted to produce the output in JSON format. Defaults to False",
-    )
-
     parser.add_argument(
         "--additional_context_path",
         type=pathlib.Path,
@@ -105,42 +83,19 @@ def parse_command_line_arguments():
         default=10,
         help="Seed for reproducibility"
     )
-
-    # TESTING
-    parser.add_argument(
-        "--test",
-        action="store_true",
-        help="Whether to use the test mode. Defaults to False",
-    )
-    parser.add_argument(
-        "--test_large",
-        action="store_true",
-        help="Whether to use the test mode with larger number of propositions. for testing on bigger machine"
-    )
-    parser.add_argument(
-        "--small_complete_run",
-        action="store_true",
-        help="Whether to run a small complete run"
-    )
-    parser.add_argument(
-        "--no_save",
-        action="store_true",
-        help="Whether to save the outputs to a .csv file. Defaults to False"
-    )
+    
     return parser.parse_args()
 
     
-def load_files(proposition_path, prompts_path, generation_kwargs_path, prompt_question_type):
+def load_files(proposition_path, prompts_path, generation_kwargs_path):
+    # Load PCT propositions
     with open(proposition_path, "r") as f:
         propositions = f.read().splitlines()
+    # Load generation templates.
     with open(prompts_path, "r") as f:
         prompts = json.load(f)
-        if prompt_question_type == 'closed_domain':
-            prompts = prompts["closed_domain"]
-        elif prompt_question_type == 'open_domain':
-            prompts = prompts["open_domain"]
-        elif prompt_question_type == 'open_domain_neutral':
-            prompts = prompts["open_domain_neutral"]
+    prompts = prompts["open_domain"]
+
     with open(generation_kwargs_path, "r") as f:
         generation_kwargs = json.load(f)
     return propositions, prompts, generation_kwargs
@@ -149,8 +104,6 @@ def load_files(proposition_path, prompts_path, generation_kwargs_path, prompt_qu
 def log_arguments(args):
     logging.info(f"Model ID: {args.model_id}")
     logging.info(f"Batch Size: {args.batch_size}")
-    logging.info(f"Using prompt questions in format: {args.prompt_question_type}")
-    logging.info(f"Format Output to JSON: {args.format_to_json}")
     logging.info(f"Additional Context Key: {args.additional_context_key}")
     logging.info(f"Additional Context Placement: {args.additional_context_placement}")
     logging.info(f"Seed: {args.seed}")
@@ -162,12 +115,8 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model_name = re.match(r".*/(.*)", args.model_id).group(1)
 
-    additional_naming = "_test" if args.test else "_test_large" if args.test_large else "_small_complete_run" if args.small_complete_run else ""
-    additional_naming += "_neutral" if args.prompt_question_type == 'open_domain_neutral' else ""
-    additional_naming += "_closed" if args.prompt_question_type == 'closed_domain' else ""
-    additional_naming += f"_{args.jailbreak_option}"
-    additional_naming += "_json" if args.format_to_json else ""
-    output_file = args.output_path / f"{model_name}{additional_naming}{'_json' if args.format_to_json else ''}.csv"
+    additional_naming = f"_{args.jailbreak_option}"
+    output_file = args.output_path / f"{model_name}{additional_naming}.csv"
 
 
     assert args.additional_context_key is None or args.additional_context_placement is not None, "If additional_context_key is specified, additional_context_placement must be specified as well."
@@ -182,37 +131,16 @@ def main():
         args.proposition_path,
         args.prompts_path,
         args.generation_kwargs_path,
-        args.prompt_question_type,
     )
-    # For testing purposes only keep the first 2 propositions and prompts.
-    if args.test:
-        propositions = propositions[:2]
-        prompts = prompts[:1]
-        generation_kwargs = {"max_new_tokens": 20, "temperature": 0.6, "do_sample": True}
     
-    if args.test_large:
-        propositions = propositions[:10]
-        prompts = prompts[:5]
-        # generation_kwargs = {"max_new_tokens": 100, "temperature": 0.6, "do_sample": True}
-    
-    if args.small_complete_run:
-        propositions = propositions
-        prompts = prompts[:2]
-        # generation_kwargs is the default one used in Wright.
-
     # If working in closed domain declare the options
-    if args.prompt_question_type == 'closed_domain':
-        options = ['Strongly disagree', 'Disagree', 'Agree', 'Strongly agree']
-    else:
-        options = None
+    options = None
 
     # Load additional context
     if args.additional_context_key is not None:
         logging.info(f"Loading additional context with key {args.additional_context_key}")
         with open(args.additional_context_path, "r") as f:
             additional_context = json.load(f)[args.additional_context_key]
-            if args.test:
-                additional_context = additional_context[:25]
     else:
         additional_context = None
     
@@ -220,8 +148,6 @@ def main():
     formatted_prompts, prompt_propositions = create_formatted_prompts(prompts=prompts,
                                                                       propositions=propositions,
                                                                       model_id=args.model_id,
-                                                                      format_to_json=args.format_to_json,
-                                                                      options=options,
                                                                       jailbreak_option=args.jailbreak_option,
                                                                       additional_context=additional_context,
                                                                       additional_context_placement=args.additional_context_placement
@@ -240,7 +166,6 @@ def main():
             formatted_prompts,
             device,
             batch_size=args.batch_size,
-            format_to_json=args.format_to_json,
             **generation_kwargs
         )
     
@@ -252,11 +177,7 @@ def main():
     logging.info(f"Valid outputs: {len([x for x in valid_outputs if x == 'valid'])} / {len(valid_outputs)}")
     """
     valid_outputs = ['valid'] * len(generated_outputs)
-    
-    # If for testing no save -> return
-    if args.no_save:
-        return
-    
+        
     # Save to .csv dataframe with columns proposition, prompt, generated_answer, additional_context_key, additional_context_location
     if not args.output_path.exists():
         args.output_path.mkdir(parents=True, exist_ok=True)
@@ -275,9 +196,6 @@ def main():
         "jailbreak_option": all_jailbreak_option,
         "generation_kwargs": all_generation_kwargs
     })
-    if args.test:
-        print(output_df.head())
-    # If test include it in the name.
     if output_file.exists():
         logging.info(f"{output_file} alread exist: appending to it...")
         output_df.to_csv(output_file, index=False, mode='a', header=False)

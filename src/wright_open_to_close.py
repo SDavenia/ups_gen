@@ -111,18 +111,6 @@ def parse_command_line_args():
         default=1
     )
     parser.add_argument(
-        "--format_to_json",
-        action="store_true",
-        help="If True, the data corresponding to the generation where the model was instructed to structure its response as json is used."
-    )
-    parser.add_argument(
-        "--prompt_question_type",
-        type=str,
-        default='open_domain',
-        choices=['closed_domain', 'open_domain', 'open_domain_neutral'],
-        help="Which set of prompts to utilize. Defaults to 'open'",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         default=10
@@ -130,7 +118,7 @@ def parse_command_line_args():
     parser.add_argument(
         "--evaluator_kwargs_path",
         type=pathlib.Path,
-        default=pathlib.Path('../data/prompting/evaluator_args_wright.json'),
+        default=pathlib.Path('../data/prompting/evaluation_args_wright.json'),
     )
 
     parser.add_argument(
@@ -140,22 +128,6 @@ def parse_command_line_args():
         choices=["jail-01", "jail-02", "jail-03", "jail-04", "jail-05"]
     )
 
-    # Only for testing purposes
-    parser.add_argument(
-        "--test",
-        action="store_true",
-        help="Whether to use the test mode. Defaults to False",
-    )
-    parser.add_argument(
-        "--test_large",
-        action="store_true",
-        help="If True a slightly larger test set is used. Defaults to False"
-    )
-    parser.add_argument(
-        "--small_complete_run",
-        action="store_true",
-        help="If True, the run is done on a small subset of the data. Defaults to False"
-    )
     return parser.parse_args()
 
 def open_to_closed(model_data_id: str,
@@ -163,12 +135,7 @@ def open_to_closed(model_data_id: str,
                    output_dir: pathlib.Path,
                    batch_size: int,
                    device: torch.device,
-                   test: bool,
-                   test_large: bool,
                    jailbreak_option: str,
-                   prompt_question_type: str,
-                   small_complete_run: bool,
-                   format_to_json: bool,
                    **generation_kwargs) -> None:
     """
     Read all files in input directory, process open response through the model and write to output directory
@@ -179,25 +146,17 @@ def open_to_closed(model_data_id: str,
         output_dir: str: Path to the output directory to write the converted data
     """
     model_name = re.match(r".*/(.*)", model_data_id).group(1)
-    additional_naming = "_test" if test else "_test_large" if test_large else ""
     # Add string in name to check if the model is open to neutral domain.
-    additional_naming += "_neutral" if prompt_question_type == "open_domain_neutral" else ""
-    additional_naming += f"_{jailbreak_option}"
+    additional_naming = f"_{jailbreak_option}"
 
-    # additional_naming = "_test_large" if test else "_test_large" if test_large else "_small_complete_run" if small_complete_run else ""
-    input_data_dir = input_dir / f"{model_name}{additional_naming}{'_json' if format_to_json else ''}.csv"
-    output_data_dir = output_dir / f"{model_name}{additional_naming}{'_json' if format_to_json else ''}.csv"
+    input_data_dir = input_dir / f"{model_name}{additional_naming}.csv"
+    output_data_dir = output_dir / f"{model_name}{additional_naming}.csv"
 
     print(f"Reading input data from: {input_data_dir}")
     with open(input_data_dir, "r") as f:
         input_data = pd.read_csv(input_data_dir)
 
     logging.info("Succesfully loaded input data.")
-    if test:
-        logging.info("Running in test mode. Only first 10 rows selected.")
-        input_data = input_data.iloc[500:2000]
-        # input_data = input_data.iloc[0:10]
-        
     evaluator_model, evaluator_model_tokenizer = load_model(EVALUATOR_MODEL_ID, device)
     logging.info("Succesfully loaded evaluator model.")
     
@@ -228,17 +187,7 @@ def open_to_closed(model_data_id: str,
     explanations = []
     cnt_wrong = 0
     cnt_tot = 0
-    # Double check just to save and make sure it goes alright
-    """
-    from copy import deepcopy as dp
-    all_outputs_copy = dp(all_outputs)
-    for invalid_idx in invalid_positions:
-        all_outputs_copy.insert(invalid_idx, "None")
-    # Save to file just as a copy
-    with open('outputs.txt', 'w') as f:
-        for output in all_outputs_copy:
-            f.write(f"{output}\n\n\n\n\n")
-    """
+    
     for idx, output in enumerate(all_outputs):
         # If the output is invalid, we will append None to the decisions and explanations as process_json_string will return None.
         output_dict = process_json_string(output)
@@ -305,27 +254,14 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logging.info(f"Device: {device}")
     # Open the file, assign the close scores and write to the output directory with the same name.
-    if args.test:
-        # generation_kwargs = {"max_new_tokens": 20, "temperature": 0.2, "do_sample": True}
-        generation_kwargs = json.load(args.evaluator_kwargs_path.open())
-        logging.info("Running in test mode.")
-    elif args.test_large:
-        generation_kwargs = json.load(args.evaluator_kwargs_path.open())
-        logging.info("Running in test large mode.")
-    else:
-        generation_kwargs = json.load(args.evaluator_kwargs_path.open())
-        logging.info("Running with evaluator model normal mode.")
+    generation_kwargs = json.load(args.evaluator_kwargs_path.open())
+    logging.info("Running with evaluator model normal mode.")
     open_to_closed(model_data_id=args.model_data_id,
                    input_dir=args.input_dir,
                    output_dir=args.output_dir,
                    batch_size=args.batch_size,
                    device=device,
-                   test=args.test,
-                   test_large=args.test_large,
                    jailbreak_option=args.jailbreak_option,
-                   small_complete_run=args.small_complete_run,
-                   prompt_question_type=args.prompt_question_type,
-                   format_to_json=args.format_to_json,
                    **generation_kwargs)
 
 if __name__ == "__main__":

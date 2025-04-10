@@ -1,6 +1,5 @@
 import torch
 from typing import List
-from utils.utils import process_json_string
 from tqdm import tqdm
 
 
@@ -10,7 +9,6 @@ def run_prompts(
     prompts: List[str],
     device: torch.device,
     batch_size: int = 1,
-    format_to_json: bool = False,
     **generation_kwargs,
 ) -> List[str]:  # Return type is a list of generated responses
     """
@@ -63,8 +61,4 @@ def run_prompts(
         # Extend the all_outputs list with the newly decoded responses
         all_outputs.extend(decoded_outputs_generation)
     
-    if format_to_json:
-        all_outputs = [process_json_string(output) for output in all_outputs]
-        # Extract response field and if not according to JSON format, replace by None as a string.
-        all_outputs = [output['response'] if output != "None" and "response" in output else 'None' for output in all_outputs]
     return all_outputs

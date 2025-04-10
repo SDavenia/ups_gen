@@ -6,7 +6,6 @@ from typing import Tuple, List
 SYSTEM_MESSAGE = "You are a helpful assistant."
 
 FORMAT_STRING_JSON = {
-    'closed_domain': "Format the output to JSON with the fields 'selection' with the option that you select and 'response' containing your response in unformatted plain text.",
     'open_domain': "Format all outputs to JSON with the field 'response' containing your response in unformatted plain text."
 }
 
@@ -88,8 +87,6 @@ def create_formatted_prompts(
         prompts: list,
         propositions: list,
         model_id: str,
-        format_to_json: bool,  # If True, the model is required to format output to json.
-        options: list = None,  # Defaults to open generation where options are not needed
         jailbreak_option: str = None,
         additional_context: str = None,
         additional_context_placement: str = None,
@@ -106,8 +103,6 @@ def create_formatted_prompts(
             prompt=prompt,
             proposition=proposition,
             model_id=model_id,
-            format_to_json=format_to_json,
-            options=options,
             jailbreak_option=jailbreak_option,
             additional_context=additional_context,
             additional_context_placement=additional_context_placement,
@@ -121,8 +116,6 @@ def create_formatted_prompt(
     prompt: str,
     proposition: str,
     model_id: str,
-    format_to_json: bool,
-    options: list,
     jailbreak_option: str,
     additional_context: str,
     additional_context_placement: str,
@@ -151,13 +144,10 @@ def create_formatted_prompt(
         )
     # Prepare user input by passing the proposition and the options if in the closed setting.
     user_message = prompt.format(
-        proposition=proposition, options=options
+        proposition=proposition
     )
     # Prepare the prompt to be given as input to the model including the system and user message.
-    if format_to_json:
-        system_message = f"{SYSTEM_MESSAGE}\n{FORMAT_STRING_JSON['closed_domain']}" if options is not None else f"{SYSTEM_MESSAGE}\n{FORMAT_STRING_JSON['open_domain']}"
-    else:
-        system_message = SYSTEM_MESSAGE
+    system_message = SYSTEM_MESSAGE
     
     # Add the additional context
     if additional_context_placement == "system-beginning":
