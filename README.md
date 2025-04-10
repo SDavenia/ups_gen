@@ -15,7 +15,7 @@ To measure the influence of irrelevant context, generations are produced under v
 
 For each contextual setting, 40 pairs of PCT scores are collected, covering 4 jailbreak options across 10 question templates.
 
-## Obtain model generations and evaluations
+## ⚙️ How to run the Pipeline
 The code to obtain the generations and the evaluations is briefly described below.
 
 ### 1. `generate_answers.py`
@@ -61,12 +61,12 @@ Where:
 - `--model_id`: HuggingFace id of the model that is required to produce the generations. 
 
 
-### 4. Obtain plots and build Linear Mixed Models
-Codes to obtain the plots and the statistical analysis are contained in python notebooks briefly described below.
-- `visualize_pct_shifts.ipynb` -> Contains the code to obtain the plots which are present in the paper to visualise the shifts compared to the base case.
-- `visualize_fit_lmm.ipynb` -> Contains the code for the statistical analysis which is included in the paper to answer RQ1 and RQ2.
+## 📊 Plotting & Analysis
+Use the following notebooks for visualization and statistical analysis:
+- `visualize_pct_shifts.ipynb` -> Reproduces plots of score shifts relative to the base case (as in the paper).
+- `visualize_fit_lmm.ipynb` -> Fits linear mixed models for analyzing RQ1 and RQ2.
  
-### 📁 Structure of the Repository
+## 📁 Structure of the Repository
 - `src/`  
   - `generate_answers.py` – Script for generating answers  
   - `wright_open_to_close.py` – Script for obtaining the evaluator model decisions.
@@ -83,12 +83,13 @@ Codes to obtain the plots and the statistical analysis are contained in python n
       - `political_compass_questions.txt` – Contains the full set of PCT questions.
     - `prompting/`
       - `additional_context.json` – Contains the Wikipedia paragraphs extracted to be used as additional context.
-      - `prompts_wright.json` – Contains the
-      - `generation_args_wright.json` – Contains the args passed to the model for generation.
-      - `evaluation_args_wright.json` – Contains the args passed to the evaluator model for making the generation.
+      - `prompts_wright.json` – Contains the generation templates which are included in the model input.
+      - `jailbreak_options_rottger.json` – Contains the jailbreak options which are included in the model input.
+      - `generation_args_wright.json` – Contains the args passed to the model for generation (same as [2]).
+      - `evaluation_args_wright.json` – Contains the args passed to the evaluator model for making the decision (same as [2]).
 
 
-### References
+## References
 - [1] Paul Röttger, Valentin Hofmann, Valentina Pyatkin, Musashi Hinck, Hannah Kirk, Hinrich Schütze, and Dirk Hovy. (2024). **Political Compass or Spinning Arrow? Towards More Meaningful Evaluations for Values and Opinions in Large Language Models.** *Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)*, pp. 15295–15311, Bangkok, Thailand.
 
 - [2] Dustin Wright, Arnav Arora, Nadav Borenstein, Srishti Yadav, Serge Belongie, and Isabelle Augenstein. (2024). **LLM Tropes: Revealing Fine-Grained Values and Opinions in Large Language Models.**  *Findings of the Association for Computational Linguistics: EMNLP 2024*, pp. 17085–17112, Miami, Florida, USA.  Association for Computational Linguistics.
