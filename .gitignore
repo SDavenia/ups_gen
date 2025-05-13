@@ -8,16 +8,23 @@ __pycache__/
 
 # Data files
 *.csv
+*.tsv
 *generation
 *generation_processed
 *generation copy
 *generation_processed copy
+*generations/
 *results_pct
+conllu_files/
+hs_predictions/
+hs_sentences/
 
 # Notebooks
 *.ipynb
 !visualize_pct_shifts.ipynb
 !visualize_fit_lmm.ipynb
+!extract_hs.ipynb
+!visualize_hs_results.ipynb
 
 # Result plots
 *.png
@@ -45,7 +52,9 @@ obtain_plots_unused.py
 plotting_utils_unused.py
 rottger_et_al_helpers_unused.py
 keys_unused.py
+extract_conllu_hurtlex_old.py
 generation_args_wright_unused.json
+visualize_fit_lmm.r
 
 # Hugging Face push scripts
 push_data_to_hf.py
