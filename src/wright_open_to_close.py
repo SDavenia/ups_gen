@@ -10,22 +10,20 @@ from utils.utils import ensure_reproducibility, prepare_logger, load_model
 from utils.utils import process_json_string
 from utils.run import run_prompts
 
-"""
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_use_double_quant=True,
-)
-"""
-
-
 # Evaluator models id.
-
 EVALUATOR_MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
+EVALUATOR_MODEL_ID = "meta-llama/Llama-3.2-1B-Instruct"
 
 PROMPT_TEMPLATES = {
     # Mistral family of models
     "mistralai/Mistral-7B-Instruct-v0.3": """<s>[INST] {user_message} [/INST]""",
+    "meta-llama/Llama-3.2-1B-Instruct": """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+You are a helpful assistant<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+{user_message}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+""",
 }
 
 PROMPT = """
@@ -88,10 +86,15 @@ output:
 def parse_command_line_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model_data_id",
+        "--model_id",
         type=str,
         default="meta-llama/Llama-3.2-1B-Instruct",
         help="Model id of the model whose generations need to be assigned closed domain scores."
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=1
     )
     parser.add_argument(
         "--input_dir",
@@ -106,11 +109,6 @@ def parse_command_line_args():
         default=pathlib.Path("../data/generation_processed/")
     )
     parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=1
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         default=10
@@ -120,57 +118,40 @@ def parse_command_line_args():
         type=pathlib.Path,
         default=pathlib.Path('../data/prompting/evaluation_args_wright.json'),
     )
-
-    parser.add_argument(
-        "--jailbreak_option",
-        type=str,
-        help="Option to be used in the jailbreak prompt",
-        choices=["jail-01", "jail-02", "jail-03", "jail-04", "jail-05"]
-    )
-
     return parser.parse_args()
 
-def open_to_closed(model_data_id: str,
+def open_to_closed(model_id: str,
                    input_dir: pathlib.Path,
                    output_dir: pathlib.Path,
                    batch_size: int,
                    device: torch.device,
-                   jailbreak_option: str,
                    **generation_kwargs) -> None:
     """
     Read all files in input directory, process open response through the model and write to output directory
     
     Args:
-        model_data_id: str: Model data id
+        model_id: str: Model data id
         input_dir: str: Path to the input directory with the generated data
         output_dir: str: Path to the output directory to write the converted data
     """
-    model_name = re.match(r".*/(.*)", model_data_id).group(1)
+    model_name = re.match(r".*/(.*)", model_id).group(1)
     # Add string in name to check if the model is open to neutral domain.
-    additional_naming = f"_{jailbreak_option}"
+    input_data_dir = input_dir / f"{model_name}.csv"
+    output_data_dir = output_dir / f"{model_name}.csv"
 
-    input_data_dir = input_dir / f"{model_name}{additional_naming}.csv"
-    output_data_dir = output_dir / f"{model_name}{additional_naming}.csv"
-
-    print(f"Reading input data from: {input_data_dir}")
     with open(input_data_dir, "r") as f:
         input_data = pd.read_csv(input_data_dir)
 
-    logging.info("Succesfully loaded input data.")
     evaluator_model, evaluator_model_tokenizer = load_model(EVALUATOR_MODEL_ID, device)
     logging.info("Succesfully loaded evaluator model.")
-    
-    # To save up some computations, we will only process the valid inputs
-    # invalid_positions = []      # Contains the positions of invalid inputs which are not processed by the model.
-    prepared_model_inputs = []  # Contains the prompts formatted to be passed as input to the model
+
+    prepared_model_inputs = []  # Contains the prompts formatted to be passed as input to the evaluator model
     for idx, row in input_data.iterrows():
-        """if row['valid'] == 'invalid':
-            invalid_positions.append(idx)
-        else:"""
         prepared_user_prompt = PROMPT.replace('[Opinion]', row["generated_answer"].strip()).replace('[Proposition]', row["proposition"].strip())
         prepared_model_input = PROMPT_TEMPLATES[EVALUATOR_MODEL_ID].format(user_message=prepared_user_prompt)
         prepared_model_inputs.append(prepared_model_input)
-    logging.info("Succesfully prepared model inputs.")
+    
+    logging.info("Succesfully prepared inputs for the evaluator model.")
 
     # Run the prompts through the model
     evaluator_model.eval()
@@ -182,6 +163,7 @@ def open_to_closed(model_data_id: str,
                                   device=device,
                                   **generation_kwargs)
     logging.info(f"Succesfully ran the {len(all_outputs)} prompts through the model.")
+    
     # Extract the decision and explanation from the outputs
     decisions = []
     explanations = []
@@ -209,25 +191,12 @@ def open_to_closed(model_data_id: str,
         explanations.append(explanation_)
     logging.info(f"Failed to decode {cnt_wrong} out of {cnt_tot} outputs.")
 
-    # Now None values to those that were previously identified and not passed through the evaluator model.
-    """
-    for invalid_idx in invalid_positions:
-        decisions.insert(invalid_idx, "None")
-        explanations.insert(invalid_idx, "None")
-    """
-
     # Add the decisions and explanations to the input data
     input_data["decision"] = decisions
     input_data["explanation"] = explanations
 
     # Additional post-processing
     input_data['additional_context_key'] = input_data['additional_context_key'].fillna('base')
-    input_data['additional_context_placement'] = input_data['additional_context_placement'].fillna('base')
-
-    # Modify valid column -> Whenever valid==valid and decision==None, then valid <- neutral.
-    # input_data.loc[(input_data['valid'] == 'valid') & (input_data['decision'] == 'None'), 'valid'] = 'neutral'
-    # Modify valid column -> Set to valid if decision is not None.
-    input_data.loc[input_data['decision'] == 'None', 'valid'] = 'invalid'
 
     # Write the data to the output directory
     if not output_data_dir.exists():
@@ -241,7 +210,7 @@ def open_to_closed(model_data_id: str,
         input_data.to_csv(output_data_dir, index=False)
 
 def log_arguments(args) -> None:
-    logging.info(f"Model (Data) ID: {args.model_data_id}")
+    logging.info(f"Model ID: {args.model_id}")
     logging.info(f"Evaluator Model ID: {EVALUATOR_MODEL_ID}")
     logging.info(f"Batch Size: {args.batch_size}")
     logging.info(f"Seed: {args.seed}")
@@ -256,12 +225,11 @@ def main():
     # Open the file, assign the close scores and write to the output directory with the same name.
     generation_kwargs = json.load(args.evaluator_kwargs_path.open())
     logging.info("Running with evaluator model normal mode.")
-    open_to_closed(model_data_id=args.model_data_id,
+    open_to_closed(model_id=args.model_id,
                    input_dir=args.input_dir,
                    output_dir=args.output_dir,
                    batch_size=args.batch_size,
                    device=device,
-                   jailbreak_option=args.jailbreak_option,
                    **generation_kwargs)
 
 if __name__ == "__main__":

@@ -61,25 +61,6 @@ PROMPT_TEMPLATES = {
     "evolveon/Mistral-7B-Instruct-v0.3-abliterated": """<s>[INST] {system_message}
 {user_message} [/INST]""",
 
-    "mistralai/Mixtral-8x7B-Instruct-v0.1": """<s>[INST] {system_message}
-{user_message} [/INST]""",
-
-    "HuggingFaceH4/zephyr-7b-beta": """<|system|>
-{system_message}</s>
-<|user|>
-{user_message}</s>
-<|assistant|>
-""",
-
-    # AllenAI models
-    "allenai/OLMo-7B-Instruct": """<|system|>
-{system_message}
-<|user|>
-{user_message}
-<|assistant|>
-
-""",
-
 }
 
 
@@ -89,7 +70,6 @@ def create_formatted_prompts(
         model_id: str,
         jailbreak_option: str = None,
         additional_context: str = None,
-        additional_context_placement: str = None,
 ) -> Tuple[List[str], List[Tuple]]:
     """
     Given a list of prompts, and proposition it combines them to return possible prompts combinations formatted into a prompt.
@@ -105,7 +85,6 @@ def create_formatted_prompts(
             model_id=model_id,
             jailbreak_option=jailbreak_option,
             additional_context=additional_context,
-            additional_context_placement=additional_context_placement,
         )
         formatted_prompts.append(formatted_prompt)
         prompt_proposition_list.append((prompt, proposition))
@@ -118,7 +97,6 @@ def create_formatted_prompt(
     model_id: str,
     jailbreak_option: str,
     additional_context: str,
-    additional_context_placement: str,
 ) -> str:
     """
     Given a model, a prompt format, a proposition this function returns the corresponding formatted prompt template.
@@ -130,8 +108,6 @@ def create_formatted_prompt(
         format_to_json (bool): If True, the model is required to format output to json.
         options (list): list of options if the model is prompted in the closed setting.
         additional_context (str, optional): Additional context to be added to the prompt to test the UPS
-        additional_context_placement (str, optional): Where to place the additional context in the prompt.
-                                                      Can be one of system, user
 
     Returns:
         str: The formatted prompt
@@ -150,26 +126,10 @@ def create_formatted_prompt(
     system_message = SYSTEM_MESSAGE
     
     # Add the additional context
-    if additional_context_placement == "system-beginning":
-        system_message = f"{additional_context}{SEP_ADDITIONAL_CONTEXT}{system_message}"
-    elif additional_context_placement == "system-end":
-        system_message = f"{system_message}{SEP_ADDITIONAL_CONTEXT}{additional_context}"
-    elif additional_context_placement == "user-beginning":
-        user_message = f"{additional_context}{SEP_ADDITIONAL_CONTEXT}{user_message}"
-    elif additional_context_placement == "user-end":
-        user_message = f"{user_message}{SEP_ADDITIONAL_CONTEXT}{additional_context}"
+    user_message = f"{additional_context}{SEP_ADDITIONAL_CONTEXT}{user_message}"
     
-    # Add jailbreak option if needed
-    if jailbreak_option is not None:
-        # Read jailbreaks from file
-        jailbreak_options_path = '../data/prompting/jailbreak_options_rottger.json'
-        with open(jailbreak_options_path, 'r') as f:
-            jailbreak_options = json.load(f) 
-        # If empty do not add the additional separator with newlines.
-        if jailbreak_options[jailbreak_option] == '':
-            user_message = f"{user_message}{jailbreak_options[jailbreak_option]}"
-        else:
-            user_message = f"{user_message}{SEP_JAILBREAK_OPTION_PROMPT}{jailbreak_options[jailbreak_option]}"
+    # Add jailbreak 
+    user_message = f"{user_message}{SEP_JAILBREAK_OPTION_PROMPT}{jailbreak_option}"
 
     prompt_formatted = prompt_template.format(
         system_message=system_message, user_message=user_message
