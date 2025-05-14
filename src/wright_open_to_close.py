@@ -127,12 +127,15 @@ def open_to_closed(model_id: str,
                    device: torch.device,
                    **generation_kwargs) -> None:
     """
-    Read all files in input directory, process open response through the model and write to output directory
+    Read all files in input directory, process open response through the model and write to output directory.
     
     Args:
         model_id: str: Model data id
         input_dir: str: Path to the input directory with the generated data
         output_dir: str: Path to the output directory to write the converted data
+        batch_size: int: Batch size for the model
+        device: torch.device: Device to run the model on
+        **generation_kwargs: Additional kwargs for the model
     """
     model_name = re.match(r".*/(.*)", model_id).group(1)
     # Add string in name to check if the model is open to neutral domain.
@@ -146,14 +149,13 @@ def open_to_closed(model_id: str,
     logging.info("Succesfully loaded evaluator model.")
 
     prepared_model_inputs = []  # Contains the prompts formatted to be passed as input to the evaluator model
-    for idx, row in input_data.iterrows():
+    for _, row in input_data.iterrows():
         prepared_user_prompt = PROMPT.replace('[Opinion]', row["generated_answer"].strip()).replace('[Proposition]', row["proposition"].strip())
         prepared_model_input = PROMPT_TEMPLATES[EVALUATOR_MODEL_ID].format(user_message=prepared_user_prompt)
         prepared_model_inputs.append(prepared_model_input)
-    
     logging.info("Succesfully prepared inputs for the evaluator model.")
 
-    # Run the prompts through the model
+    # Run the prompts through the evaluator model
     evaluator_model.eval()
     with torch.inference_mode():
         all_outputs = run_prompts(model=evaluator_model,
@@ -164,7 +166,7 @@ def open_to_closed(model_id: str,
                                   **generation_kwargs)
     logging.info(f"Succesfully ran the {len(all_outputs)} prompts through the model.")
     
-    # Extract the decision and explanation from the outputs
+    # Extract the decision and explanations from the outputs
     decisions = []
     explanations = []
     cnt_wrong = 0

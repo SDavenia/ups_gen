@@ -9,8 +9,8 @@ import re
 import pandas as pd
 
 from utils.utils import ensure_reproducibility, prepare_logger, load_model
-from utils.run import run_prompts
 from utils.data import create_formatted_prompts
+from utils.run import run_prompts
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser()
@@ -153,7 +153,7 @@ def main():
                     **generation_kwargs
                 )
             logging.info("\tSuccessfully generated outputs")
-            # Prepare all necessary variables 
+            # Prepare all necessary variables and save to a dataframe
             prompts_extended, proposition_extended = zip(*prompt_propositions)
             all_generation_kwargs = [generation_kwargs] * len(proposition_extended)
             all_jailbreak_option = [jailbreak_key] * len(proposition_extended)
@@ -166,6 +166,7 @@ def main():
                 "jailbreak_option": all_jailbreak_option,
                 "generation_kwargs": all_generation_kwargs
             })
+            # Concatenate the new dataframe with the previous one
             output_df = pd.concat([output_df, output_df_temp], ignore_index=True)
     logging.info(f"Saving generated answers to {output_file}")
     output_df.to_csv(output_file, index=False, mode='w')

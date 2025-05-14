@@ -72,8 +72,21 @@ def create_formatted_prompts(
         additional_context: str = None,
 ) -> Tuple[List[str], List[Tuple]]:
     """
-    Given a list of prompts, and proposition it combines them to return possible prompts combinations formatted into a prompt.
+    Given a list of prompts, and propositions it combines them to return possible prompts combinations 
+    formatted into a prompt with the specified context and jailbreak option.
     It also returns a list of tuples (prompt, proposition) corresponding to each combination.
+    
+    Args:
+        prompts (list): List of prompt templates to be used
+        propositions (list): List of propositions or questions to be inserted into prompts
+        model_id (str): Identifier for the model to determine the appropriate prompt template format
+        jailbreak_option (str, optional): Optional jailbreak text to append to the prompt. Defaults to None.
+        additional_context (str, optional): Additional context to be added to the prompt. Defaults to None.
+        
+    Returns:
+        Tuple[List[str], List[Tuple]]: A tuple containing:
+            - List of formatted prompts ready to be fed to the model
+            - List of (prompt, proposition) tuples corresponding to each formatted prompt
     """
     formatted_prompts = []
     prompt_proposition_list = []
@@ -99,7 +112,7 @@ def create_formatted_prompt(
     additional_context: str,
 ) -> str:
     """
-    Given a model, a prompt format, a proposition this function returns the corresponding formatted prompt template.
+    Given a model, a prompt format, a proposition, a jailbreak option and a context this function returns the corresponding formatted prompt template.
 
     Args:
         model_id (str): Needed for the prompt formatting with tags etc...

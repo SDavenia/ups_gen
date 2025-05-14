@@ -52,6 +52,7 @@ def run_prompts(
             outputs = model.generate(**inputs, **generation_kwargs, eos_token_id=terminators)
         else:
             outputs = model.generate(**inputs, **generation_kwargs)
+        
         # Retain only the actual generation
         outputs_generation = outputs[:, inputs.input_ids.shape[1]:]
         

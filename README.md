@@ -21,37 +21,33 @@ The code to obtain the generations and the evaluations is briefly described belo
 ### 1. `generate_answers.py`
 
 Generates answers to PCT questions using a specified jailbreak strategy and prompt variations. Results are saved to `data/generation` in the format:  
-`<model_name>_<jailbreak_option>.csv`
+`<model_name>.csv`
 
 **Usage:**
 ```
 python generate_answers.py \
   --model_id <HF_MODEL_ID> \
-  [--additional_context_key <KEY>] \
-  [--jailbreak_option <JAILBREAK_ID>]
+  [--batch_size <BATCH_SIZE>]
 ```
 
 Where: 
 - `--model_id`: HuggingFace id of the model that is required to produce the generations. 
-- `--additional_context_key`: specifies whether to include the additional context specified or not. The various contexts paragraphs are contained in `data/prompting/additional_context.json`. If left empty, the base case without any additional context is used. 
-- `--jailreak_option`: specifies which jail-break option to include. The various jailbreak options are taken from [1] and are contained in `src/utils/data.py`.
 
 ### 2. `wright_open_to_close.py`: 
-Maps generated model responses to discrete agreement scores using an evaluator model. Adds a decision column to the input CSV and stores the result in data/generation_processed in the format: `<model_name>_<jailbreak_option>.csv`. By default (as in [2]), the evaluator is `Mistral-Instruct-7B-v0.3`.
+Maps generated model responses to discrete agreement scores using an evaluator model. Adds a decision column to the input CSV and stores the results in `data/generation_processed` in the format: `<model_name>.csv`. By default (as in [2]), the evaluator is `Mistral-Instruct-7B-v0.3`.
 
 **Usage**:
 ```
 python wright_open_to_close.py \
   --model_data_id <HF_MODEL_ID> \
-  [--jailbreak_option <JAILBREAK_ID>] \
+  [--batch_size <JAILBREAK_ID>] \
 ```
 Where: 
 - `--model_data_id`: HuggingFace id of the model that was used to produce the answers.
-- `--jailreak_option`: specifies which jail-break option to include.
-
 
 ### 3. `map_to_pct_axis.py`
-Given a specific model used to obtain the generations, it takes all files in the directory `data/generation_processed` for that model and computes the PCT score for both economic and social axes for each specific (`additional_context`, `prompt_template`, `jailbreak_option`) tuple and saves them in `data/results_pct/pct_results.csv`. Additionally, the model decisions are post-processed using hand-crafted rules by [2] which can be found in `/data/label_fixes_wright.json`.
+Maps the set of answers obtained for each specific (`additional_context`, `prompt_template`, `jailbreak_option`) and appends them to `data/results_pct/pct_results.csv`
+Additionally, the model decisions are post-processed using hand-crafted rules by [2] which can be found in `/data/label_fixes_wright.json`.
 
 **Usage**:
 ```
