@@ -98,6 +98,7 @@ Use the following notebooks for visualization and statistical analysis:
 
 ## Cite
 To cite this work please cite
+```bibtex
 @inproceedings{davenia-basile-2025-quantifying,
   title     = "Quantifying the Influence of Irrelevant Contexts on Political Opinions Produced by {LLM}s",
   author    = "D'Avenia, Samuele and Basile, Valerio",
@@ -111,6 +112,7 @@ To cite this work please cite
   pages     = "434--454",
   ISBN      = "979-8-89176-254-1"
 }
+```
 
 
 ## References
